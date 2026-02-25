@@ -1,9 +1,11 @@
 import { readFileSync, writeFileSync, appendFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import type { ScanResult, ArbitrageOpportunity } from '@/types';
+import type { ValuePick } from '@/lib/value';
 
 const DATA_DIR = join(process.cwd(), 'data');
 const HISTORY_FILE = join(DATA_DIR, 'arb-history.jsonl');
+const VALUE_HISTORY_FILE = join(DATA_DIR, 'value-history.jsonl');
 const MAX_LINES = 10_000;
 
 function ensureDir() {
@@ -38,6 +40,31 @@ export function logScanResult(result: ScanResult): void {
       writeFileSync(HISTORY_FILE, trimmed);
     }
   } catch { /* ignore rotation errors */ }
+}
+
+export function logValuePicks(picks: ValuePick[]): void {
+  if (picks.length === 0) return;
+  ensureDir();
+  const entry = { timestamp: new Date().toISOString(), picks };
+  appendFileSync(VALUE_HISTORY_FILE, JSON.stringify(entry) + '\n');
+  try {
+    const content = readFileSync(VALUE_HISTORY_FILE, 'utf-8');
+    const lines = content.trim().split('\n');
+    if (lines.length > MAX_LINES) {
+      writeFileSync(VALUE_HISTORY_FILE, lines.slice(lines.length - MAX_LINES).join('\n') + '\n');
+    }
+  } catch { /* ignore */ }
+}
+
+export function getValueHistory(hours: number): { timestamp: string; picks: ValuePick[] }[] {
+  ensureDir();
+  if (!existsSync(VALUE_HISTORY_FILE)) return [];
+  const content = readFileSync(VALUE_HISTORY_FILE, 'utf-8').trim();
+  if (!content) return [];
+  const cutoff = new Date(Date.now() - hours * 3600_000).toISOString();
+  return content.split('\n').map(line => {
+    try { return JSON.parse(line); } catch { return null; }
+  }).filter((e): e is { timestamp: string; picks: ValuePick[] } => e != null && e.timestamp >= cutoff);
 }
 
 function readEntries(): HistoryEntry[] {

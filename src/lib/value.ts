@@ -132,12 +132,14 @@ export async function findValuePicks(): Promise<ValuePick[]> {
       const fairValue = (pmPrices.yes + kalshiPrice) / 2;
       const kalshiVol = km.volume || 0;
 
-      // Check Polymarket side: is it underpriced?
+      // Only show positive EV picks (underpriced = buy opportunity)
+      // Negative EV / FADE makes no sense when you can bet both sides
+
+      // Check Polymarket side: is it underpriced vs Kalshi?
       const pmEv = fairValue - pmPrices.yes;
       const pmEvPercent = (pmEv / pmPrices.yes) * 100;
 
-      if (Math.abs(pmEvPercent) > 5) {
-        const direction: 'buy_yes' | 'buy_no' | 'fade' = pmEv > 0 ? 'buy_yes' : 'fade';
+      if (pmEv > 0 && pmEvPercent > 5) {
         picks.push({
           id: `val-${++idCounter}`,
           market: pm.question,
@@ -146,22 +148,21 @@ export async function findValuePicks(): Promise<ValuePick[]> {
           estimatedFairValue: fairValue,
           ev: pmEv,
           evPercent: pmEvPercent,
-          direction,
+          direction: 'buy_yes',
           category: cat,
           confidence: getConfidence(true, pmVol + kalshiVol, pmEvPercent),
-          thesis: generateThesis(direction, 'Polymarket', pmPrices.yes, fairValue, 'Kalshi', kalshiPrice),
+          thesis: generateThesis('buy_yes', 'Polymarket', pmPrices.yes, fairValue, 'Kalshi', kalshiPrice),
           volume: pmVol,
           deepLink: polymarketLink({ slug: pm.slug, conditionId: pm.conditionId }),
           detectedAt: now,
         });
       }
 
-      // Check Kalshi side: is it underpriced?
+      // Check Kalshi side: is it underpriced vs Polymarket?
       const kEv = fairValue - kalshiPrice;
       const kEvPercent = (kEv / kalshiPrice) * 100;
 
-      if (Math.abs(kEvPercent) > 5 && kalshiVol >= 500) {
-        const direction: 'buy_yes' | 'buy_no' | 'fade' = kEv > 0 ? 'buy_yes' : 'fade';
+      if (kEv > 0 && kEvPercent > 5 && kalshiVol >= 500) {
         picks.push({
           id: `val-${++idCounter}`,
           market: km.title || kEvent.title,
@@ -170,12 +171,12 @@ export async function findValuePicks(): Promise<ValuePick[]> {
           estimatedFairValue: fairValue,
           ev: kEv,
           evPercent: kEvPercent,
-          direction,
+          direction: 'buy_yes',
           category: cat,
           confidence: getConfidence(true, pmVol + kalshiVol, kEvPercent),
-          thesis: generateThesis(direction, 'Kalshi', kalshiPrice, fairValue, 'Polymarket', pmPrices.yes),
+          thesis: generateThesis('buy_yes', 'Kalshi', kalshiPrice, fairValue, 'Polymarket', pmPrices.yes),
           volume: kalshiVol,
-          deepLink: kalshiLink({ event_ticker: kEvent.event_ticker, ticker: km.ticker }),
+          deepLink: kalshiLink({ event_ticker: km.event_ticker || kEvent.event_ticker, ticker: km.ticker }),
           detectedAt: now,
         });
       }

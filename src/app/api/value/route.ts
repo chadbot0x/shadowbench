@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { findValuePicks } from '@/lib/value';
+import { logValuePicks } from '@/lib/history';
 
 export const revalidate = 60;
 
@@ -8,6 +9,9 @@ export async function GET() {
 
   try {
     const picks = await findValuePicks();
+
+    // Log to history (fire-and-forget)
+    try { logValuePicks(picks); } catch { /* ignore */ }
 
     return NextResponse.json({
       picks,

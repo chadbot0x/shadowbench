@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getHistory, getLeaderboard } from '@/lib/history';
+import { getHistory, getLeaderboard, getValueHistory } from '@/lib/history';
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -11,10 +11,12 @@ export async function GET(req: NextRequest) {
 
   const hours = Math.max(1, parseInt(searchParams.get('hours') || '24', 10) || 24);
   const entries = getHistory(hours);
+  const valuePicks = getValueHistory(hours);
 
   return NextResponse.json({
     hours,
     entries: entries.length,
     history: entries,
+    valuePicks,
   });
 }
