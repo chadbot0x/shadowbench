@@ -60,7 +60,13 @@ function safeNum(v: any): number | undefined {
 
 async function fetchScoreboard(cfg: typeof LEAGUES[number]): Promise<SportEvent[]> {
   try {
-    const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.path}/scoreboard`;
+    // Request today's + tomorrow's dates to get upcoming games only
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const todayStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+    const tomorrowStr = tomorrow.toISOString().slice(0, 10).replace(/-/g, '');
+    const url = `https://site.api.espn.com/apis/site/v2/sports/${cfg.path}/scoreboard?dates=${todayStr}-${tomorrowStr}`;
     const res = await fetch(url, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     const data = await res.json();
@@ -316,20 +322,21 @@ export async function GET() {
 
   // Fetch all scoreboards
   const results = await Promise.all(LEAGUES.map(l => fetchScoreboard(l)));
-  const allEvents = results.flat().sort((a, b) => {
-    // Live first, then scheduled, then final
-    const statusOrder = { in_progress: 0, scheduled: 1, final: 2 };
-    const diff = statusOrder[a.status] - statusOrder[b.status];
-    if (diff !== 0) return diff;
-    return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
-  });
+  // Filter out completed games — schedule shows live + upcoming only
+  const allEvents = results.flat()
+    .filter(e => e.status !== 'final')
+    .sort((a, b) => {
+      // Live first, then scheduled by start time
+      if (a.status === 'in_progress' && b.status !== 'in_progress') return -1;
+      if (b.status === 'in_progress' && a.status !== 'in_progress') return 1;
+      return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
+    });
 
-  // Enrich live/final games with detailed stats (limit concurrent to avoid hammering ESPN)
+  // Enrich live games with stats, scheduled games with injuries/odds
   const leagueMap = Object.fromEntries(LEAGUES.map(l => [l.league, l.path]));
-  const toEnrich = allEvents.filter(e => e.status === 'in_progress' || e.status === 'final');
-  // Also enrich scheduled games for injuries/odds (limit to 8 total to keep response fast)
-  const scheduledToEnrich = allEvents.filter(e => e.status === 'scheduled').slice(0, 4);
-  const enrichTargets = [...toEnrich, ...scheduledToEnrich].slice(0, 12);
+  const liveGames = allEvents.filter(e => e.status === 'in_progress');
+  const scheduledToEnrich = allEvents.filter(e => e.status === 'scheduled').slice(0, 6);
+  const enrichTargets = [...liveGames, ...scheduledToEnrich].slice(0, 12);
 
   await Promise.all(enrichTargets.map(ev => enrichEvent(ev, leagueMap[ev.league])));
 
