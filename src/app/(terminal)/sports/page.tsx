@@ -360,8 +360,9 @@ function ScheduleTab() {
   }, [fetchEvents]);
 
   const filtered = useMemo(() => {
-    if (leagueFilter === 'All') return events;
-    return events.filter(e => e.league === leagueFilter);
+    let result = events.filter(e => e.status !== 'final');
+    if (leagueFilter !== 'All') result = result.filter(e => e.league === leagueFilter);
+    return result;
   }, [events, leagueFilter]);
 
   const liveCount = events.filter(e => e.status === 'in_progress').length;
