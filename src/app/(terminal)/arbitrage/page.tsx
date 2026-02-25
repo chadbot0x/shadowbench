@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GitCompare, RefreshCw, AlertCircle, Loader2, Zap, TrendingUp, Clock, Filter, Star, ExternalLink } from 'lucide-react';
 import type { ArbitrageOpportunity, ScanResult } from '@/types';
-import { polymarketLink, kalshiLink } from '@/lib/links';
 import { addToWatchlist, removeFromWatchlist, isInWatchlist } from '@/lib/watchlist';
 
 function SkeletonCard() {
@@ -63,15 +62,15 @@ function ArbCard({ arb, index }: { arb: ArbitrageOpportunity; index: number }) {
 
   const isHot = arb.spreadPercent > 5;
 
-  // Build deep links
-  const polyLink = polymarketLink({ conditionId: arb.id.includes('cross') ? undefined : undefined, question: arb.event });
-  const kalLink = kalshiLink({});
-
   // Determine which platform links to show
   const platformAIsPolymarket = arb.platformA === 'Polymarket' || arb.platformA === 'Polymarket YES';
   const platformBIsPolymarket = arb.platformB === 'Polymarket' || arb.platformB === 'Polymarket NO';
   const showPolymarket = platformAIsPolymarket || platformBIsPolymarket || arb.type === 'intra-market';
   const showKalshi = arb.platformA === 'Kalshi' || arb.platformB === 'Kalshi';
+
+  // Use actual deep links from the arb data
+  const polyLink = platformAIsPolymarket ? arb.deepLinkA : arb.deepLinkB;
+  const kalLink = arb.platformA === 'Kalshi' ? arb.deepLinkA : arb.deepLinkB;
 
   return (
     <motion.div
@@ -167,7 +166,7 @@ function ArbCard({ arb, index }: { arb: ArbitrageOpportunity; index: number }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {showPolymarket && (
             <a
-              href="https://polymarket.com"
+              href={polyLink || 'https://polymarket.com'}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 bg-green/15 hover:bg-green/25 text-green font-semibold px-4 py-3 rounded-xl text-sm transition-colors"
@@ -178,7 +177,7 @@ function ArbCard({ arb, index }: { arb: ArbitrageOpportunity; index: number }) {
           )}
           {showKalshi && (
             <a
-              href="https://kalshi.com"
+              href={kalLink || 'https://kalshi.com'}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 bg-blue/15 hover:bg-blue/25 text-blue font-semibold px-4 py-3 rounded-xl text-sm transition-colors"
@@ -189,7 +188,7 @@ function ArbCard({ arb, index }: { arb: ArbitrageOpportunity; index: number }) {
           )}
           {arb.type === 'intra-market' && (
             <a
-              href="https://polymarket.com"
+              href={arb.deepLinkA || 'https://polymarket.com'}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 bg-green/15 hover:bg-green/25 text-green font-semibold px-4 py-3 rounded-xl text-sm transition-colors sm:col-span-2"

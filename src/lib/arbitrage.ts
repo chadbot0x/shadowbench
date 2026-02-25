@@ -1,6 +1,7 @@
 import { PolymarketMarket, ArbitrageOpportunity, KalshiEvent, ScanResult } from '@/types';
 import { fetchMarkets, parseOutcomePrices } from './polymarket';
 import { fetchKalshiEvents, getKalshiYesPrice } from './kalshi';
+import { polymarketLink, kalshiLink } from './links';
 
 // Fuzzy string similarity (Dice coefficient on bigrams)
 function similarity(a: string, b: string): number {
@@ -92,6 +93,9 @@ export async function detectArbitrage(): Promise<ScanResult> {
         const potentialProfit = requiredCapital * spread;
         const kalshiVol = km.volume || 0;
 
+        const pmLink = polymarketLink({ slug: pm.slug, conditionId: pm.conditionId });
+        const kLink = kalshiLink({ event_ticker: km.event_ticker, ticker: km.ticker });
+
         opportunities.push({
           id: `cross-${++idCounter}`,
           event: pm.question,
@@ -110,6 +114,8 @@ export async function detectArbitrage(): Promise<ScanResult> {
           volumeA: cheapPlatform === 'Polymarket' ? pmVol : kalshiVol,
           volumeB: cheapPlatform === 'Polymarket' ? kalshiVol : pmVol,
           details: `Buy YES on ${cheapPlatform} at ${(cheapPrice * 100).toFixed(1)}¢, sell YES on ${expPlatform} at ${(expPrice * 100).toFixed(1)}¢. Match confidence: ${(matchScore * 100).toFixed(0)}%`,
+          deepLinkA: cheapPlatform === 'Polymarket' ? pmLink : kLink,
+          deepLinkB: cheapPlatform === 'Polymarket' ? kLink : pmLink,
         });
       }
     }
@@ -130,6 +136,7 @@ export async function detectArbitrage(): Promise<ScanResult> {
       if (spreadPercent < 2) continue; // Need at least 2% to be meaningful
 
       const pmVol = parseFloat(pm.volume || '0');
+      const intraLink = polymarketLink({ slug: pm.slug, conditionId: pm.conditionId });
       opportunities.push({
         id: `intra-${++idCounter}`,
         event: pm.question,
@@ -148,6 +155,8 @@ export async function detectArbitrage(): Promise<ScanResult> {
         volumeA: pmVol,
         volumeB: pmVol,
         details: `YES (${(prices.yes * 100).toFixed(1)}¢) + NO (${(prices.no * 100).toFixed(1)}¢) = ${(sum * 100).toFixed(1)}¢. Buy both for guaranteed ${(spread * 100).toFixed(1)}¢ profit per share.`,
+        deepLinkA: intraLink,
+        deepLinkB: intraLink,
       });
     }
   }

@@ -86,6 +86,8 @@ export interface ArbitrageOpportunity {
   volumeA?: number;
   volumeB?: number;
   details?: string;
+  deepLinkA?: string;
+  deepLinkB?: string;
 }
 
 export interface ScanResult {
