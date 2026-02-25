@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Search, TrendingUp, Clock, Flame, Loader2 } from 'lucide-react';
+import { Search, TrendingUp, Clock, Flame } from 'lucide-react';
 import type { PolymarketMarket } from '@/types';
 import { parseOutcomePrices, formatPrice, formatVolume } from '@/lib/polymarket';
 
@@ -24,6 +24,60 @@ function SkeletonCard() {
         <div className="h-8 bg-border rounded flex-1" />
       </div>
     </div>
+  );
+}
+
+function MarketCard({ market, index, large }: { market: PolymarketMarket; index: number; large?: boolean }) {
+  const prices = parseOutcomePrices(market);
+  const slug = market.conditionId || market.slug || market.id;
+  const isYesFavored = prices.yes > 0.5;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.02 }}
+      whileHover={{ borderColor: '#4a9eff' }}
+    >
+      <Link href={`/markets/${slug}`}>
+        <div className={`bg-surface border border-border rounded-xl overflow-hidden hover:bg-white/[0.02] transition-colors cursor-pointer h-full flex ${large ? 'p-5' : 'p-4'}`}>
+          {/* Colored left bar */}
+          <div className={`w-1 rounded-full shrink-0 mr-3 ${isYesFavored ? 'bg-green' : 'bg-red'}`} />
+          <div className="flex-1 flex flex-col">
+            <div className="flex items-center gap-2 mb-2">
+              <p className={`font-medium text-foreground line-clamp-2 flex-1 ${large ? 'text-base' : 'text-sm'}`}>
+                {market.question}
+              </p>
+            </div>
+            {market.category && (
+              <span className="text-[10px] px-2 py-0.5 rounded bg-blue/10 text-blue w-fit mb-2">
+                {market.category}
+              </span>
+            )}
+            <div className="flex items-center gap-3 mb-3 mt-auto">
+              <div className="flex-1 bg-green/10 rounded-lg px-3 py-2 text-center">
+                <div className="text-xs text-muted mb-0.5">YES</div>
+                <div className={`text-green font-bold ${large ? 'text-xl' : 'text-lg'}`}>{formatPrice(prices.yes)}</div>
+              </div>
+              <div className="flex-1 bg-red/10 rounded-lg px-3 py-2 text-center">
+                <div className="text-xs text-muted mb-0.5">NO</div>
+                <div className={`text-red font-bold ${large ? 'text-xl' : 'text-lg'}`}>{formatPrice(prices.no)}</div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span className="flex items-center gap-1">
+                <Flame className="w-3 h-3" />
+                {formatVolume(market.volume24hr || market.volume || '0')}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {market.endDate ? new Date(market.endDate).toLocaleDateString() : '—'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </Link>
+    </motion.div>
   );
 }
 
@@ -53,29 +107,30 @@ export default function MarketsPage() {
 
   const filtered = useMemo(() => {
     let result = markets;
-
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((m) => m.question?.toLowerCase().includes(q));
     }
-
     if (category !== 'All') {
       result = result.filter((m) => m.category?.toLowerCase() === category.toLowerCase());
     }
-
     if (sort === 'newest') {
       result = [...result].sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
     } else if (sort === 'ending') {
       result = [...result].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
     }
-
     return result;
   }, [markets, search, category, sort]);
+
+  const hotMarkets = useMemo(() => markets.slice(0, 3), [markets]);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Markets</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Markets</h1>
+          {!loading && <p className="text-xs text-muted mt-1">Showing {filtered.length} markets</p>}
+        </div>
         <div className="flex items-center gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
@@ -99,6 +154,21 @@ export default function MarketsPage() {
         </div>
       </div>
 
+      {/* Hot Markets */}
+      {!loading && hotMarkets.length > 0 && !search && category === 'All' && (
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <Flame className="w-4 h-4 text-gold" />
+            <h2 className="text-sm font-semibold text-gold">Hot Markets</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {hotMarkets.map((m, i) => (
+              <MarketCard key={m.id || i} market={m} index={i} large />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Category tabs */}
       <div className="flex gap-2 mb-6">
         {CATEGORIES.map((cat) => (
@@ -116,56 +186,15 @@ export default function MarketsPage() {
         ))}
       </div>
 
-      {/* Grid */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
+          {Array.from({ length: 9 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((market, i) => {
-            const prices = parseOutcomePrices(market);
-            const slug = market.conditionId || market.slug || market.id;
-            return (
-              <motion.div
-                key={market.id || i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.02 }}
-                whileHover={{ borderColor: '#4a9eff' }}
-              >
-                <Link href={`/markets/${slug}`}>
-                  <div className="bg-surface border border-border rounded-xl p-4 hover:bg-white/[0.02] transition-colors cursor-pointer h-full flex flex-col">
-                    <p className="text-sm font-medium text-foreground mb-3 line-clamp-2 flex-1">
-                      {market.question}
-                    </p>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="flex-1 bg-green/10 rounded-lg px-3 py-2 text-center">
-                        <div className="text-xs text-muted mb-0.5">YES</div>
-                        <div className="text-green font-bold text-lg">{formatPrice(prices.yes)}</div>
-                      </div>
-                      <div className="flex-1 bg-red/10 rounded-lg px-3 py-2 text-center">
-                        <div className="text-xs text-muted mb-0.5">NO</div>
-                        <div className="text-red font-bold text-lg">{formatPrice(prices.no)}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted">
-                      <span className="flex items-center gap-1">
-                        <Flame className="w-3 h-3" />
-                        {formatVolume(market.volume24hr || market.volume || '0')}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {market.endDate ? new Date(market.endDate).toLocaleDateString() : '—'}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              </motion.div>
-            );
-          })}
+          {filtered.map((market, i) => (
+            <MarketCard key={market.id || i} market={market} index={i} />
+          ))}
         </div>
       )}
 
