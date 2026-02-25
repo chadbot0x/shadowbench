@@ -46,3 +46,6 @@ __pycache__/
 *.pyc
 data/
 .DS_Store
+# Data files (runtime)
+data/*.json
+data/*.jsonl
