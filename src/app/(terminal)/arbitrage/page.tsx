@@ -191,60 +191,60 @@ export default function ArbitragePage() {
                   isHot ? 'border-gold/40' : 'border-border hover:border-gold/20'
                 }`}
               >
-                <div className="p-4 flex items-center gap-4">
-                  {/* Hot indicator */}
-                  <div className="shrink-0 w-3 flex justify-center">
-                    {isHot && (
-                      <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gold" />
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="text-sm font-medium text-foreground truncate">{arb.event}</p>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                        arb.confidence === 'high' ? 'bg-green/15 text-green' :
-                        arb.confidence === 'medium' ? 'bg-gold/15 text-gold' :
-                        'bg-muted/15 text-muted'
-                      }`}>
-                        {arb.confidence.toUpperCase()}
-                      </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue/10 text-blue shrink-0">
-                        {arb.type === 'cross-platform' ? 'Cross' : 'Intra'}
-                      </span>
+                <div className="p-4">
+                  {/* Top row: event name + expand button */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <div className="shrink-0 w-3 flex justify-center pt-1">
+                      {isHot && (
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gold" />
+                        </span>
+                      )}
                     </div>
-                    <span className="text-xs text-muted">{arb.category}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <p className="text-sm font-medium text-foreground truncate">{arb.event}</p>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                          arb.confidence === 'high' ? 'bg-green/15 text-green' :
+                          arb.confidence === 'medium' ? 'bg-gold/15 text-gold' :
+                          'bg-muted/15 text-muted'
+                        }`}>
+                          {arb.confidence.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue/10 text-blue shrink-0">
+                          {arb.type === 'cross-platform' ? 'Cross' : 'Intra'}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted">{arb.category}</span>
+                    </div>
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : arb.id)}
+                      className="text-muted hover:text-foreground transition-colors shrink-0"
+                    >
+                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
                   </div>
 
-                  <div className="text-center shrink-0">
-                    <div className="text-[10px] text-green">{arb.platformA}</div>
-                    <div className="text-sm font-bold text-green">{(arb.platformAPrice * 100).toFixed(1)}¢</div>
+                  {/* Price row: wraps on mobile */}
+                  <div className="flex flex-wrap items-center gap-3 ml-6">
+                    <div className="text-center shrink-0">
+                      <div className="text-[10px] text-green">{arb.platformA}</div>
+                      <div className="text-sm font-bold text-green">{(arb.platformAPrice * 100).toFixed(1)}¢</div>
+                    </div>
+                    <div className="text-center shrink-0">
+                      <div className="text-[10px] text-red">{arb.platformB}</div>
+                      <div className="text-sm font-bold text-red">{(arb.platformBPrice * 100).toFixed(1)}¢</div>
+                    </div>
+                    <div className="text-center shrink-0">
+                      <div className="text-[10px] text-muted">Spread</div>
+                      <div className="text-sm font-bold text-gold">{arb.spreadPercent.toFixed(1)}%</div>
+                    </div>
+                    <div className="text-center shrink-0 hidden sm:block">
+                      <div className="text-[10px] text-muted">$100 →</div>
+                      <div className="text-sm font-bold text-green">${arb.potentialProfit.toFixed(2)}</div>
+                    </div>
                   </div>
-
-                  <div className="text-center shrink-0">
-                    <div className="text-[10px] text-red">{arb.platformB}</div>
-                    <div className="text-sm font-bold text-red">{(arb.platformBPrice * 100).toFixed(1)}¢</div>
-                  </div>
-
-                  <div className="text-center shrink-0 min-w-[70px]">
-                    <div className="text-[10px] text-muted">Spread</div>
-                    <div className="text-sm font-bold text-gold">{arb.spreadPercent.toFixed(1)}%</div>
-                  </div>
-
-                  <div className="text-center shrink-0 min-w-[60px]">
-                    <div className="text-[10px] text-muted">$100 →</div>
-                    <div className="text-sm font-bold text-green">${arb.potentialProfit.toFixed(2)}</div>
-                  </div>
-
-                  <button
-                    onClick={() => setExpandedId(isExpanded ? null : arb.id)}
-                    className="text-muted hover:text-foreground transition-colors shrink-0"
-                  >
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
                 </div>
 
                 <AnimatePresence>

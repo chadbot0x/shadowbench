@@ -72,7 +72,7 @@ export default function LandingPage() {
   const [ticker, setTicker] = useState<TickerItem[]>([]);
 
   useEffect(() => {
-    fetch('https://gamma-api.polymarket.com/markets?closed=false&limit=10&order=volume&ascending=false')
+    fetch('/api/markets?limit=10')
       .then(r => r.json())
       .then((markets: Array<{ question: string; outcomePrices: string }>) => {
         setTicker(markets.map(m => {

@@ -18,9 +18,7 @@ export default function MarketDetailPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch(
-          `https://gamma-api.polymarket.com/markets?condition_id=${slug}`
-        );
+        const res = await fetch(`/api/markets/${slug}`);
         const data = await res.json();
         const m = data[0] || null;
         setMarket(m);
@@ -68,7 +66,7 @@ export default function MarketDetailPage() {
       {/* Header */}
       <div className="bg-surface border border-border rounded-xl p-6">
         <h1 className="text-xl font-bold text-foreground mb-4">{market.question}</h1>
-        <div className="flex flex-wrap gap-6">
+        <div className="grid grid-cols-2 md:flex md:flex-wrap gap-4 md:gap-6">
           <div>
             <div className="text-xs text-muted mb-1">YES</div>
             <div className="text-2xl font-bold text-green">{formatPrice(prices.yes)}</div>
@@ -104,7 +102,7 @@ export default function MarketDetailPage() {
           <div className="bg-surface border border-border rounded-xl p-6">
             <h2 className="text-sm font-semibold text-foreground mb-4">Order Book</h2>
             {orderBook ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Bids */}
                 <div>
                   <div className="flex justify-between text-xs text-muted mb-2 px-2">

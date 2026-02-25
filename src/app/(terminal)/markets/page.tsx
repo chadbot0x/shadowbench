@@ -92,7 +92,7 @@ export default function MarketsPage() {
     async function load() {
       try {
         const res = await fetch(
-          'https://gamma-api.polymarket.com/markets?closed=false&limit=100&order=volume&ascending=false'
+          '/api/markets?limit=100'
         );
         const data = await res.json();
         setMarkets(data);
@@ -126,20 +126,20 @@ export default function MarketsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Markets</h1>
           {!loading && <p className="text-xs text-muted mt-1">Showing {filtered.length} markets</p>}
         </div>
         <div className="flex items-center gap-3">
-          <div className="relative">
+          <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter markets..."
-              className="bg-surface border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-blue w-64"
+              className="bg-surface border border-border rounded-lg pl-9 pr-4 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:border-blue w-full sm:w-64"
             />
           </div>
           <select
@@ -170,7 +170,7 @@ export default function MarketsPage() {
       )}
 
       {/* Category tabs */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-6 overflow-x-auto">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
