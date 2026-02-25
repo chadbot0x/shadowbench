@@ -5,7 +5,14 @@ export function polymarketLink(market: { conditionId?: string; slug?: string; qu
 }
 
 export function kalshiLink(market: { event_ticker?: string; ticker?: string }): string {
-  if (market.event_ticker) return `https://kalshi.com/markets/${market.event_ticker.toLowerCase()}`;
-  if (market.ticker) return `https://kalshi.com/markets/${market.ticker.toLowerCase()}`;
-  return 'https://kalshi.com';
+  // Kalshi uses /browse/ for event pages; strip the contract suffix (e.g. -70) for the event URL
+  if (market.event_ticker) {
+    const base = market.event_ticker.replace(/-\d+$/, '').toLowerCase();
+    return `https://kalshi.com/browse/${base}`;
+  }
+  if (market.ticker) {
+    const base = market.ticker.replace(/-\d+$/, '').toLowerCase();
+    return `https://kalshi.com/browse/${base}`;
+  }
+  return 'https://kalshi.com/browse';
 }
