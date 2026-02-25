@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart3, GitCompare, Star, Menu, Search, TrendingUp } from 'lucide-react';
+import { BarChart3, GitCompare, Star, Menu, Search, TrendingUp, Trophy, Clock, Award } from 'lucide-react';
 
 export default function TerminalLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -12,6 +12,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
   const [marketCount, setMarketCount] = useState<number | null>(null);
   const [arbCount, setArbCount] = useState<number | null>(null);
   const [scannerOnline, setScannerOnline] = useState(false);
+  const [apiStatus, setApiStatus] = useState<{ polymarket?: { status: string }; kalshi?: { status: string } } | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -34,6 +35,11 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
       .then(r => r.json())
       .then(d => { setArbCount(d.metadata?.matches_found ?? 0); setScannerOnline(true); })
       .catch(() => setScannerOnline(false));
+
+    fetch('/api/status')
+      .then(r => r.json())
+      .then(d => setApiStatus(d))
+      .catch(() => {});
   }, []);
 
   const handleNavClick = useCallback(() => {
@@ -45,6 +51,12 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
     { href: '/value', label: 'Value', icon: TrendingUp },
     { href: '/arbitrage', label: 'Arbitrage', icon: GitCompare, badge: arbCount, gold: true },
     { href: '/watchlist', label: 'Watchlist', icon: Star },
+  ];
+
+  const secondaryNavItems = [
+    { href: '/sports', label: 'Sports', icon: Trophy },
+    { href: '/history', label: 'History', icon: Clock },
+    { href: '/leaderboard', label: 'Leaderboard', icon: Award },
   ];
 
   const sidebarContent = (
@@ -88,6 +100,23 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
             </Link>
           );
         })}
+        <div className="my-2 border-t border-border" />
+        {secondaryNavItems.map((item) => {
+          const active = pathname === item.href || pathname.startsWith(item.href + '/');
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={handleNavClick}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
+                active ? 'bg-blue/10 text-blue' : 'text-muted hover:text-foreground hover:bg-white/5'
+              }`}
+            >
+              <item.icon className="w-4 h-4" />
+              <span className="flex-1">{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
       <div className="p-3 border-t border-border">
         <div className="flex items-center gap-2 text-xs">
@@ -105,6 +134,19 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
             {scannerOnline ? 'Scanning' : 'Offline'}
           </span>
         </div>
+        {apiStatus && (
+          <div className="mt-2 space-y-1">
+            {[
+              { name: 'Polymarket', status: apiStatus.polymarket?.status },
+              { name: 'Kalshi', status: apiStatus.kalshi?.status },
+            ].map(src => (
+              <div key={src.name} className="flex items-center gap-2 text-[10px]">
+                <span className={`inline-flex rounded-full h-1.5 w-1.5 ${src.status === 'up' ? 'bg-green' : 'bg-red'}`} />
+                <span className="text-muted">{src.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </motion.aside>
   );
