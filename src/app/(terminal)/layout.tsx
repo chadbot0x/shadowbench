@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart3, GitCompare, Star, Menu, Search } from 'lucide-react';
+import { BarChart3, GitCompare, Star, Menu, Search, TrendingUp } from 'lucide-react';
 
 export default function TerminalLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -42,6 +42,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
 
   const navItems = [
     { href: '/markets', label: 'Markets', icon: BarChart3, badge: marketCount },
+    { href: '/value', label: 'Value', icon: TrendingUp },
     { href: '/arbitrage', label: 'Arbitrage', icon: GitCompare, badge: arbCount, gold: true },
     { href: '/watchlist', label: 'Watchlist', icon: Star },
   ];

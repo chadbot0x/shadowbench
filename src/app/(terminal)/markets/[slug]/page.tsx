@@ -185,12 +185,14 @@ export default function MarketDetailPage() {
               </span>
             </div>
           )}
-          <button
-            disabled
-            className="w-full py-3 rounded-lg text-sm font-semibold bg-blue/20 text-blue/50 cursor-not-allowed"
+          <a
+            href={`https://polymarket.com/event/${slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full py-3 rounded-lg text-sm font-semibold bg-green/20 text-green hover:bg-green/30 transition-colors text-center"
           >
-            Connect Wallet to Trade
-          </button>
+            Trade on Polymarket →
+          </a>
         </div>
       </div>
 
