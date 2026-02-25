@@ -1,6 +1,6 @@
 export function polymarketLink(market: { conditionId?: string; slug?: string; question?: string }): string {
-  if (market.slug) return `https://polymarket.com/event/${market.slug}`;
-  if (market.conditionId) return `https://polymarket.com/event/${market.conditionId}`;
+  if (market.slug) return `https://polymarket.com/market/${market.slug}`;
+  if (market.conditionId) return `https://polymarket.com/market/${market.conditionId}`;
   return 'https://polymarket.com';
 }
 
