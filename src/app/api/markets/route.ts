@@ -4,9 +4,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const params = new URLSearchParams();
   
-  // Forward all query params
+  // Forward all query params, sanitize values
   searchParams.forEach((value, key) => {
-    params.set(key, value);
+    // Strip HTML tags and limit length
+    const sanitized = value.replace(/<[^>]*>/g, '').slice(0, 200);
+    params.set(key, sanitized);
   });
 
   // Defaults
@@ -22,6 +24,6 @@ export async function GET(request: NextRequest) {
     const data = await res.json();
     return NextResponse.json(data);
   } catch (e) {
-    return NextResponse.json([], { status: 502 });
+    return NextResponse.json([], { status: 200 });
   }
 }

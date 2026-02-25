@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(getLeaderboard());
   }
 
-  const hours = parseInt(searchParams.get('hours') || '24', 10);
+  const hours = Math.max(1, parseInt(searchParams.get('hours') || '24', 10) || 24);
   const entries = getHistory(hours);
 
   return NextResponse.json({

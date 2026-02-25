@@ -18,6 +18,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'url and min_spread_pct required' }, { status: 400 });
   }
 
+  if (body.min_spread_pct < 0 || body.min_spread_pct > 100) {
+    return NextResponse.json({ error: 'min_spread_pct must be between 0 and 100' }, { status: 400 });
+  }
+
+  try {
+    const parsed = new URL(body.url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return NextResponse.json({ error: 'url must be http or https' }, { status: 400 });
+    }
+    // Reject URLs with HTML/script tags
+    if (/<[^>]*>/i.test(body.url)) {
+      return NextResponse.json({ error: 'url contains invalid characters' }, { status: 400 });
+    }
+  } catch {
+    return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
+  }
+
   const hook = registerWebhook(apiKey, {
     url: body.url,
     min_spread_pct: body.min_spread_pct,
