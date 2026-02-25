@@ -3,15 +3,36 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, TrendingUp, Zap, Filter, RefreshCw, ExternalLink, Search } from 'lucide-react';
-import type { ArbitrageOpportunity } from '@/types';
 
-interface HistoryEntry extends ArbitrageOpportunity {
-  detectedAt: string;
+interface ArbitrageOpp {
+  id: string;
+  event: string;
+  category: string;
+  platformA: string;
+  platformB: string;
+  priceA: number;
+  priceB: number;
+  spreadPercent: number;
+  confidence: string;
+  deepLinkA?: string;
+  deepLinkB?: string;
 }
 
-interface HistoryResponse {
-  entries: HistoryEntry[];
-  summary: { total: number; avgSpread: number; bestSpread: number };
+interface ScanEntry {
+  timestamp: string;
+  scan_time_ms: number;
+  markets_scanned: number;
+  opportunities: ArbitrageOpp[];
+}
+
+interface HistoryAPIResponse {
+  hours: number;
+  entries: number;
+  history: ScanEntry[];
+}
+
+interface FlatEntry extends ArbitrageOpp {
+  detectedAt: string;
 }
 
 const TIME_RANGES = [
@@ -22,7 +43,7 @@ const TIME_RANGES = [
 ] as const;
 
 export default function HistoryPage() {
-  const [data, setData] = useState<HistoryResponse | null>(null);
+  const [raw, setRaw] = useState<HistoryAPIResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [hours, setHours] = useState(24);
   const [minSpread, setMinSpread] = useState(0);
@@ -33,10 +54,10 @@ export default function HistoryPage() {
       setLoading(true);
       const res = await fetch(`/api/history?hours=${hours}`);
       if (!res.ok) throw new Error('Failed');
-      const result = await res.json();
-      setData(result);
+      const result: HistoryAPIResponse = await res.json();
+      setRaw(result);
     } catch {
-      setData(null);
+      setRaw(null);
     } finally {
       setLoading(false);
     }
@@ -44,19 +65,42 @@ export default function HistoryPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Flatten scan entries into individual arb opportunities
+  const allEntries: FlatEntry[] = useMemo(() => {
+    if (!raw?.history) return [];
+    const flat: FlatEntry[] = [];
+    for (const scan of raw.history) {
+      for (const opp of scan.opportunities) {
+        flat.push({ ...opp, detectedAt: scan.timestamp });
+      }
+    }
+    return flat.sort((a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime());
+  }, [raw]);
+
+  const summary = useMemo(() => {
+    if (!allEntries.length) return { total: 0, avgSpread: 0, bestSpread: 0 };
+    const spreads = allEntries.map(e => e.spreadPercent);
+    return {
+      total: allEntries.length,
+      avgSpread: spreads.reduce((a, b) => a + b, 0) / spreads.length,
+      bestSpread: Math.max(...spreads),
+    };
+  }, [allEntries]);
+
+  const scanCount = raw?.history?.length ?? 0;
+
   const categories = useMemo(() => {
-    if (!data?.entries.length) return ['All'];
-    const cats = new Set(data.entries.map(e => e.category));
+    if (!allEntries.length) return ['All'];
+    const cats = new Set(allEntries.map(e => e.category).filter(Boolean));
     return ['All', ...Array.from(cats)];
-  }, [data]);
+  }, [allEntries]);
 
   const filtered = useMemo(() => {
-    if (!data?.entries) return [];
-    let result = data.entries;
+    let result = allEntries;
     if (categoryFilter !== 'All') result = result.filter(e => e.category === categoryFilter);
     if (minSpread > 0) result = result.filter(e => e.spreadPercent >= minSpread);
     return result;
-  }, [data, categoryFilter, minSpread]);
+  }, [allEntries, categoryFilter, minSpread]);
 
   const rangeLabel = TIME_RANGES.find(r => r.hours === hours)?.label ?? '24h';
 
@@ -72,11 +116,12 @@ export default function HistoryPage() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
-          { label: `Arbs in last ${rangeLabel}`, value: data?.summary?.total ?? '—', icon: Zap, color: 'text-gold' },
-          { label: 'Avg Spread', value: data?.summary?.avgSpread ? `${data.summary.avgSpread.toFixed(1)}%` : '—', icon: Filter, color: 'text-blue' },
-          { label: 'Best Spread', value: data?.summary?.bestSpread ? `${data.summary.bestSpread.toFixed(1)}%` : '—', icon: TrendingUp, color: 'text-green' },
+          { label: `Scans (${rangeLabel})`, value: scanCount, icon: Clock, color: 'text-muted' },
+          { label: `Arbs found`, value: summary.total || '—', icon: Zap, color: 'text-gold' },
+          { label: 'Avg Spread', value: summary.avgSpread ? `${summary.avgSpread.toFixed(1)}%` : '—', icon: Filter, color: 'text-blue' },
+          { label: 'Best Spread', value: summary.bestSpread ? `${summary.bestSpread.toFixed(1)}%` : '—', icon: TrendingUp, color: 'text-green' },
         ].map(stat => (
           <div key={stat.label} className="bg-surface border border-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -113,17 +158,19 @@ export default function HistoryPage() {
           <option value={5}>Min Spread: 5%</option>
           <option value={10}>Min Spread: 10%</option>
         </select>
-        <select
-          value={categoryFilter}
-          onChange={e => setCategoryFilter(e.target.value)}
-          className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-foreground"
-        >
-          {categories.map(c => <option key={c} value={c}>{c}</option>)}
-        </select>
+        {categories.length > 1 && (
+          <select
+            value={categoryFilter}
+            onChange={e => setCategoryFilter(e.target.value)}
+            className="bg-surface border border-border rounded-lg px-3 py-1.5 text-xs text-foreground"
+          >
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
       </div>
 
       {/* Loading */}
-      {loading && !data && (
+      {loading && !raw && (
         <div className="space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="bg-surface border border-border rounded-xl p-6 animate-pulse">
@@ -135,11 +182,17 @@ export default function HistoryPage() {
       )}
 
       {/* Empty state */}
-      {!loading && (!data?.entries || filtered.length === 0) && (
+      {!loading && filtered.length === 0 && (
         <div className="text-center py-20">
           <Search className="w-12 h-12 text-muted mx-auto mb-3" />
-          <p className="text-foreground font-medium mb-1">Scanner is collecting data</p>
-          <p className="text-xs text-muted">Check back soon. Arbitrage history will appear here as the scanner runs.</p>
+          <p className="text-foreground font-medium mb-1">
+            {allEntries.length === 0 ? 'Scanner is collecting data' : 'No arbs match your filters'}
+          </p>
+          <p className="text-xs text-muted">
+            {allEntries.length === 0
+              ? `${scanCount} scans completed so far. Arbs will appear here when cross-platform price gaps are detected.`
+              : 'Try adjusting the time range or minimum spread filter.'}
+          </p>
         </div>
       )}
 
@@ -148,7 +201,7 @@ export default function HistoryPage() {
         <AnimatePresence>
           {filtered.map((entry, i) => (
             <motion.div
-              key={entry.id + entry.detectedAt}
+              key={`${entry.id}-${entry.detectedAt}-${i}`}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.02 }}
@@ -158,8 +211,10 @@ export default function HistoryPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground mb-1 truncate">{entry.event}</p>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-                    <span className="px-2 py-0.5 rounded bg-blue/10 text-blue text-[10px] font-medium">{entry.category}</span>
-                    <span>{entry.platformA} vs {entry.platformB}</span>
+                    {entry.category && (
+                      <span className="px-2 py-0.5 rounded bg-blue/10 text-blue text-[10px] font-medium">{entry.category}</span>
+                    )}
+                    <span>{entry.platformA} {entry.priceA ? `${(entry.priceA * 100).toFixed(0)}¢` : ''} vs {entry.platformB} {entry.priceB ? `${(entry.priceB * 100).toFixed(0)}¢` : ''}</span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {new Date(entry.detectedAt).toLocaleString()}
@@ -173,16 +228,22 @@ export default function HistoryPage() {
                   </span>
                 </div>
               </div>
-              <div className="flex gap-3 mt-3">
-                <a href="https://polymarket.com" target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-blue hover:underline flex items-center gap-1">
-                  Polymarket <ExternalLink className="w-3 h-3" />
-                </a>
-                <a href="https://kalshi.com" target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-blue hover:underline flex items-center gap-1">
-                  Kalshi <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
+              {(entry.deepLinkA || entry.deepLinkB) && (
+                <div className="flex gap-3 mt-3">
+                  {entry.deepLinkA && (
+                    <a href={entry.deepLinkA} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue hover:underline flex items-center gap-1">
+                      {entry.platformA} <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                  {entry.deepLinkB && (
+                    <a href={entry.deepLinkB} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue hover:underline flex items-center gap-1">
+                      {entry.platformB} <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>
