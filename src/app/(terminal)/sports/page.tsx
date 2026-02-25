@@ -117,67 +117,71 @@ function GameCard({ ev }: { ev: SportEvent }) {
       {/* Collapsed header — always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 text-left flex items-center gap-3"
+        className="w-full p-4 text-left"
       >
-        {/* League */}
-        <span className="text-xl w-8 text-center flex-shrink-0">{LEAGUE_EMOJI[ev.league] || '🏅'}</span>
+        {/* Row 1: Teams */}
+        <div className="flex items-center gap-3 mb-2">
+          {/* Away team */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {ev.awayTeam.logo ? (
+              <img src={ev.awayTeam.logo} alt="" className="w-6 h-6 flex-shrink-0" />
+            ) : (
+              <span className="text-base flex-shrink-0">{LEAGUE_EMOJI[ev.league] || '🏅'}</span>
+            )}
+            <span className="font-semibold text-foreground text-sm">{ev.awayTeam.name}</span>
+            {ev.awayTeam.score != null && <span className="font-bold text-foreground text-lg ml-auto">{ev.awayTeam.score}</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 mb-2">
+          {/* Home team */}
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {ev.homeTeam.logo ? (
+              <img src={ev.homeTeam.logo} alt="" className="w-6 h-6 flex-shrink-0" />
+            ) : (
+              <span className="text-base flex-shrink-0">{LEAGUE_EMOJI[ev.league] || '🏅'}</span>
+            )}
+            <span className="font-semibold text-foreground text-sm">{ev.homeTeam.name}</span>
+            {ev.homeTeam.score != null && <span className="font-bold text-foreground text-lg ml-auto">{ev.homeTeam.score}</span>}
+          </div>
+        </div>
 
-        {/* Teams + score */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-foreground text-sm truncate">
-              {ev.awayTeam.name}
-              {ev.awayTeam.score != null && <span className="ml-1 text-muted font-bold">{ev.awayTeam.score}</span>}
-              <span className="text-muted mx-1.5">@</span>
-              {ev.homeTeam.name}
-              {ev.homeTeam.score != null && <span className="ml-1 text-muted font-bold">{ev.homeTeam.score}</span>}
+        {/* Row 2: Meta line */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Status badge */}
+          {ev.status === 'in_progress' && (
+            <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red/15 text-red font-medium">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red" />
+              </span>
+              {ev.statusDetail || 'LIVE'}
             </span>
+          )}
+          {ev.status === 'final' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/15 text-muted font-medium">Final</span>
+          )}
+          {ev.status === 'scheduled' && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue/10 text-blue font-medium">
+              ⏰ {formatTime(ev.startTime)}
+            </span>
+          )}
 
-            {/* Status badge */}
-            {ev.status === 'in_progress' && (
-              <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red/15 text-red font-medium flex-shrink-0">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red" />
-                </span>
-                {ev.statusDetail || 'LIVE'}
-              </span>
+          <span className="text-xs text-muted">{formatDate(ev.startTime)}</span>
+          {ev.homeTeam.record && <span className="text-xs text-muted">· {ev.homeTeam.record}</span>}
+          {ev.odds?.spread && <span className="text-xs text-muted">· {ev.odds.spread}</span>}
+
+          <div className="ml-auto flex items-center gap-1.5">
+            {ev.hasPolymarket && (
+              <span className="text-[10px] px-2 py-1 rounded bg-green/10 text-green font-medium">Poly</span>
             )}
-            {ev.status === 'final' && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/15 text-muted font-medium flex-shrink-0">✅ Final</span>
+            {ev.hasKalshi && (
+              <span className="text-[10px] px-2 py-1 rounded bg-blue/10 text-blue font-medium">Kalshi</span>
             )}
-            {ev.status === 'scheduled' && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue/10 text-blue font-medium flex-shrink-0">
-                ⏰ {formatTime(ev.startTime)}
-              </span>
+            {!ev.hasPolymarket && !ev.hasKalshi && (
+              <span className="text-[10px] text-muted/50">No markets</span>
             )}
+            {expanded ? <ChevronUp className="w-4 h-4 text-muted" /> : <ChevronDown className="w-4 h-4 text-muted" />}
           </div>
-
-          <div className="flex items-center gap-2 text-xs text-muted flex-wrap">
-            <span>{formatDate(ev.startTime)}</span>
-            {ev.homeTeam.record && <span>· {ev.homeTeam.record}</span>}
-            {ev.odds?.spread && <span>· {ev.odds.spread}</span>}
-            {ev.odds?.overUnder && <span>· {ev.odds.overUnder}</span>}
-            {ev.broadcast && <span className="hidden md:inline">· 📺 {ev.broadcast}</span>}
-          </div>
-        </div>
-
-        {/* Market badges */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {ev.hasPolymarket && (
-            <span className="text-[10px] px-2 py-1 rounded bg-green/10 text-green">📊 Poly</span>
-          )}
-          {ev.hasKalshi && (
-            <span className="text-[10px] px-2 py-1 rounded bg-blue/10 text-blue">📊 Kalshi</span>
-          )}
-          {!ev.hasPolymarket && !ev.hasKalshi && (
-            <span className="text-[10px] text-muted/50">No markets</span>
-          )}
-        </div>
-
-        {/* Expand toggle */}
-        <div className="flex-shrink-0 text-muted">
-          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </button>
 
@@ -715,10 +719,12 @@ export default function SportsPage() {
       <div className="flex gap-1 mb-6 bg-surface border border-border rounded-xl p-1">
         {TABS.map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center ${
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex-1 justify-center ${
               activeTab === tab.id ? 'bg-gold/15 text-gold' : 'text-muted hover:text-foreground hover:bg-white/5'
             }`}>
-            <tab.icon className="w-4 h-4" /> {tab.label}
+            <tab.icon className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline">{tab.label}</span>
+            <span className="sm:hidden">{tab.label.slice(0, 4)}</span>
           </button>
         ))}
       </div>
