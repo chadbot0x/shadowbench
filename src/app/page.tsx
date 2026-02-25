@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, BarChart3, GitCompare, Radio, PieChart, Search, Zap, Shield, TrendingUp } from 'lucide-react';
+import { ArrowRight, BarChart3, GitCompare, Radio, PieChart, Search, Zap, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 interface TickerItem {

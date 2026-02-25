@@ -2,7 +2,7 @@ import { PolymarketMarket, ArbitrageOpportunity, KalshiEvent, ScanResult } from 
 import { fetchMarkets, parseOutcomePrices } from './polymarket';
 import { fetchKalshiEvents, getKalshiYesPrice } from './kalshi';
 
-// Simple fuzzy string similarity (Dice coefficient on bigrams)
+// Fuzzy string similarity (Dice coefficient on bigrams)
 function similarity(a: string, b: string): number {
   const normalize = (s: string) =>
     s.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
@@ -18,15 +18,21 @@ function similarity(a: string, b: string): number {
 
   const ba = bigrams(na);
   const bb = bigrams(nb);
+  if (ba.size === 0 || bb.size === 0) return 0;
   let intersection = 0;
-  for (const b of ba) if (bb.has(b)) intersection++;
-  return ba.size + bb.size === 0 ? 0 : (2 * intersection) / (ba.size + bb.size);
+  for (const bg of ba) if (bb.has(bg)) intersection++;
+  return (2 * intersection) / (ba.size + bb.size);
 }
 
-function getConfidence(spread: number, volumeA: number, volumeB: number): 'high' | 'medium' | 'low' {
-  const totalVol = volumeA + volumeB;
-  if (spread > 0.1 && totalVol > 100000) return 'high';
-  if (spread > 0.05 || totalVol > 50000) return 'medium';
+function getConfidence(
+  spreadPercent: number,
+  volumeA: number,
+  volumeB: number,
+  matchScore: number
+): 'high' | 'medium' | 'low' {
+  // High confidence: tight match, real volume, meaningful spread
+  if (matchScore > 0.8 && spreadPercent > 3 && volumeA > 10000 && volumeB > 1000) return 'high';
+  if (matchScore > 0.6 && spreadPercent > 2 && (volumeA + volumeB) > 5000) return 'medium';
   return 'low';
 }
 
@@ -35,37 +41,47 @@ export async function detectArbitrage(): Promise<ScanResult> {
 
   const [polymarkets, kalshiEvents] = await Promise.all([
     fetchMarkets({ limit: 100, order: 'volume', ascending: false, closed: false }),
-    fetchKalshiEvents(100),
+    fetchKalshiEvents(50), // Reduced — each event requires a detail fetch
   ]);
 
   const opportunities: ArbitrageOpportunity[] = [];
   let idCounter = 0;
 
+  const kalshiMarketCount = kalshiEvents.reduce((s, e) => s + (e.markets?.length || 0), 0);
+
   // Cross-platform matching
   for (const pm of polymarkets) {
     const pmPrices = parseOutcomePrices(pm);
-    if (!pmPrices.yes || pmPrices.yes <= 0 || pmPrices.yes >= 1) continue;
+    // Must have valid YES price in (0.01, 0.99) range
+    if (!pmPrices.yes || pmPrices.yes <= 0.01 || pmPrices.yes >= 0.99) continue;
 
     const pmVol = parseFloat(pm.volume || '0');
 
     for (const event of kalshiEvents) {
       for (const km of event.markets || []) {
         const kalshiPrice = getKalshiYesPrice(km);
-        if (!kalshiPrice || kalshiPrice <= 0 || kalshiPrice >= 1) continue;
+        // Must have valid Kalshi price
+        if (!kalshiPrice || kalshiPrice <= 0.01 || kalshiPrice >= 0.99) continue;
 
-        // Try matching question to event/market title
+        // Match quality: require HIGH similarity (0.65+) to avoid false positives
         const matchScore = Math.max(
           similarity(pm.question, event.title),
-          similarity(pm.question, km.title),
+          similarity(pm.question, km.title || ''),
           km.subtitle ? similarity(pm.question, km.subtitle) : 0
         );
 
-        if (matchScore < 0.35) continue;
+        if (matchScore < 0.55) continue;
 
         const spread = Math.abs(pmPrices.yes - kalshiPrice);
-        const spreadPercent = (spread / Math.min(pmPrices.yes, kalshiPrice)) * 100;
+        // Spread as % of the cheaper price
+        const cheaperPrice = Math.min(pmPrices.yes, kalshiPrice);
+        const spreadPercent = (spread / cheaperPrice) * 100;
 
-        if (spreadPercent < 1) continue;
+        // Minimum 2% spread to be worth showing
+        if (spreadPercent < 2) continue;
+
+        // Cap spread at 100% — anything higher is likely a bad match
+        if (spreadPercent > 100) continue;
 
         const [cheapPlatform, cheapPrice, expPlatform, expPrice] =
           pmPrices.yes < kalshiPrice
@@ -87,7 +103,7 @@ export async function detectArbitrage(): Promise<ScanResult> {
           spread,
           spreadPercent,
           category: pm.category || event.category || 'Other',
-          confidence: getConfidence(spread, pmVol, kalshiVol),
+          confidence: getConfidence(spreadPercent, pmVol, kalshiVol, matchScore),
           potentialProfit,
           requiredCapital,
           matchScore,
@@ -99,26 +115,19 @@ export async function detectArbitrage(): Promise<ScanResult> {
     }
   }
 
-  // Intra-market arbs: multi-outcome Polymarket events where YES prices don't sum to ~100%
-  // Group by groupItemTitle patterns (markets with same base question)
-  const grouped = new Map<string, PolymarketMarket[]>();
-  for (const m of polymarkets) {
-    // Use description or slug prefix as grouping key
-    const key = m.groupItemTitle || m.question;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(m);
-  }
-
-  // Also check individual markets where YES + NO don't sum to ~1
+  // Intra-market arbs: YES + NO prices don't sum to ~100%
   for (const pm of polymarkets) {
     const prices = parseOutcomePrices(pm);
     if (!prices.yes || !prices.no) continue;
+    // Both prices must be meaningful
+    if (prices.yes < 0.01 || prices.no < 0.01) continue;
+
     const sum = prices.yes + prices.no;
     if (sum < 0.95) {
-      // Gap exists - buying both YES and NO costs less than $1 but one must pay $1
+      // Gap: buying both YES and NO costs less than $1 but one must pay $1
       const spread = 1 - sum;
       const spreadPercent = spread * 100;
-      if (spreadPercent < 1) continue;
+      if (spreadPercent < 2) continue; // Need at least 2% to be meaningful
 
       const pmVol = parseFloat(pm.volume || '0');
       opportunities.push({
@@ -132,7 +141,7 @@ export async function detectArbitrage(): Promise<ScanResult> {
         spread,
         spreadPercent,
         category: pm.category || 'Other',
-        confidence: getConfidence(spread, pmVol, pmVol),
+        confidence: getConfidence(spreadPercent, pmVol, pmVol, 1),
         potentialProfit: 100 * spread,
         requiredCapital: 100,
         matchScore: 1,
@@ -143,15 +152,16 @@ export async function detectArbitrage(): Promise<ScanResult> {
     }
   }
 
-  // Sort by spread descending
+  // Sort by spread descending, cap at top 50 results
   opportunities.sort((a, b) => b.spreadPercent - a.spreadPercent);
+  const topOpps = opportunities.slice(0, 50);
 
   return {
-    opportunities,
+    opportunities: topOpps,
     metadata: {
       scan_time_ms: Date.now() - start,
-      markets_scanned: polymarkets.length + kalshiEvents.reduce((s, e) => s + (e.markets?.length || 0), 0),
-      matches_found: opportunities.length,
+      markets_scanned: polymarkets.length + kalshiMarketCount,
+      matches_found: topOpps.length,
       timestamp: new Date().toISOString(),
     },
   };
