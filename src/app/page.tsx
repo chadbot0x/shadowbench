@@ -110,12 +110,7 @@ export default function LandingPage() {
       </nav>
 
       <main className="relative z-10 max-w-7xl mx-auto px-8 pt-20 pb-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center max-w-4xl mx-auto"
-        >
+        <div className="text-center max-w-4xl mx-auto animate-fade-in">
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
             <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg, #4a9eff, #ffd700)' }}>
               Motion Detected.
@@ -125,30 +120,22 @@ export default function LandingPage() {
             Cross-platform arbitrage scanner with elite sports stats and real-time market odds.
           </p>
           <Link href="/arbitrage">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.98 }}
-              className="inline-flex items-center gap-2 font-semibold px-8 py-4 rounded-lg text-lg transition-all text-background"
+            <button
+              className="inline-flex items-center gap-2 font-semibold px-8 py-4 rounded-lg text-lg transition-all text-background hover:scale-105 active:scale-95"
               style={{ background: 'linear-gradient(135deg, #ffd700, #ffaa00)' }}
             >
               Prove you know ball
               <ArrowRight className="w-5 h-5" />
-            </motion.button>
+            </button>
           </Link>
-        </motion.div>
+        </div>
 
         <div className="flex justify-center gap-12 mt-16 mb-20">
           {stats.map((s) => (
-            <motion.div
-              key={s.label}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="text-center"
-            >
+            <div key={s.label} className="text-center animate-fade-in">
               <div className="text-2xl font-bold text-foreground">{s.value}</div>
               <div className="text-xs text-muted mt-1">{s.label}</div>
-            </motion.div>
+            </div>
           ))}
         </div>
 
@@ -156,31 +143,20 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto mb-24">
           <h2 className="text-center text-lg font-semibold text-foreground mb-8">Discover · Track · Act</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {steps.map((step, i) => (
-              <motion.div
-                key={step.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 + i * 0.1 }}
-                className="text-center"
-              >
+            {steps.map((step) => (
+              <div key={step.title} className="text-center animate-fade-in">
                 <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-3">
                   <step.icon className="w-6 h-6 text-gold" />
                 </div>
                 <div className="text-sm font-semibold text-foreground mb-1">{step.title}</div>
                 <div className="text-xs text-muted leading-relaxed">{step.desc}</div>
-              </motion.div>
+              </div>
             ))}
           </div>
         </div>
 
         {/* Scanner preview */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="max-w-3xl mx-auto mb-24 bg-surface border border-border rounded-xl p-6"
-        >
+        <div className="max-w-3xl mx-auto mb-24 bg-surface border border-border rounded-xl p-6 animate-fade-in">
           <div className="flex items-center gap-2 mb-4">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green opacity-75" />
@@ -200,18 +176,14 @@ export default function LandingPage() {
               <span className="text-gold font-bold text-xs">{mock.spread}%</span>
             </div>
           ))}
-        </motion.div>
+        </div>
 
         {/* Feature Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {features.map((feature, i) => (
-            <motion.div
+          {features.map((feature) => (
+            <div
               key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 + i * 0.1 }}
-              whileHover={{ y: -4 }}
-              className={`bg-surface border rounded-xl p-6 transition-colors ${
+              className={`bg-surface border rounded-xl p-6 transition-all hover:-translate-y-1 animate-fade-in ${
                 feature.gold ? 'border-gold/40 hover:border-gold' : 'border-border hover:border-blue'
               }`}
             >
@@ -223,7 +195,7 @@ export default function LandingPage() {
                 )}
               </div>
               <p className="text-muted text-sm leading-relaxed">{feature.description}</p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </main>
