@@ -20,6 +20,7 @@ function SkeletonCard() {
 }
 
 const TYPES = ['All', 'Cross-Platform', 'Intra-Market'] as const;
+const CATEGORIES = ['All', 'Sports', 'Politics', 'Crypto', 'World'] as const;
 const SORT_OPTIONS = [
   { label: 'Spread %', value: 'spread' },
   { label: 'Profit', value: 'profit' },
@@ -208,6 +209,7 @@ export default function ArbitragePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>('All');
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [minSpread, setMinSpread] = useState(0);
   const [sortBy, setSortBy] = useState('spread');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -239,6 +241,11 @@ export default function ArbitragePage() {
 
     if (typeFilter === 'Cross-Platform') result = result.filter(o => o.type === 'cross-platform');
     else if (typeFilter === 'Intra-Market') result = result.filter(o => o.type === 'intra-market');
+
+    if (categoryFilter !== 'All') {
+      const catLower = categoryFilter.toLowerCase();
+      result = result.filter(o => (o.category || '').toLowerCase().includes(catLower));
+    }
 
     if (minSpread > 0) result = result.filter(o => o.spreadPercent >= minSpread);
 
@@ -297,6 +304,19 @@ export default function ArbitragePage() {
               }`}
             >
               {t}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-1">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategoryFilter(c)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                categoryFilter === c ? 'bg-blue/15 text-blue' : 'text-muted hover:text-foreground hover:bg-white/5'
+              }`}
+            >
+              {c}
             </button>
           ))}
         </div>

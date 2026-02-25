@@ -1,6 +1,7 @@
 import { ArbitrageOpportunity, ScanResult } from '@/types';
 import { fetchMarkets, parseOutcomePrices } from './polymarket';
 import { fetchKalshiEvents, getKalshiYesPrice } from './kalshi';
+import { polymarketLink, kalshiLink } from './links';
 
 const SPORTS_KEYWORDS = ['sports', 'nba', 'nfl', 'mlb', 'nhl', 'soccer', 'mls', 'ufc', 'boxing', 'tennis', 'golf'];
 
@@ -140,6 +141,9 @@ export async function detectSportsArbitrage(): Promise<ScanResult> {
 
         const kalshiVol = km.volume || 0;
 
+        const pmLink = polymarketLink({ slug: pm.slug, conditionId: pm.conditionId });
+        const kLink = kalshiLink({ event_ticker: km.event_ticker, ticker: km.ticker });
+
         opportunities.push({
           id: `sports-${++idCounter}`,
           event: pm.question,
@@ -158,6 +162,8 @@ export async function detectSportsArbitrage(): Promise<ScanResult> {
           volumeA: cheapPlatform === 'Polymarket' ? pmVol : kalshiVol,
           volumeB: cheapPlatform === 'Polymarket' ? kalshiVol : pmVol,
           details: `Sports arb: Buy YES on ${cheapPlatform} at ${(cheapPrice * 100).toFixed(1)}¢, sell on ${expPlatform} at ${(expPrice * 100).toFixed(1)}¢`,
+          deepLinkA: cheapPlatform === 'Polymarket' ? pmLink : kLink,
+          deepLinkB: cheapPlatform === 'Polymarket' ? kLink : pmLink,
         });
       }
     }

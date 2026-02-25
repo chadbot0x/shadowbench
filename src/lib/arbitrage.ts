@@ -2,6 +2,7 @@ import { PolymarketMarket, ArbitrageOpportunity, KalshiEvent, ScanResult } from 
 import { fetchMarkets, parseOutcomePrices } from './polymarket';
 import { fetchKalshiEvents, getKalshiYesPrice } from './kalshi';
 import { polymarketLink, kalshiLink } from './links';
+import { detectSportsArbitrage } from './sports';
 
 // Fuzzy string similarity (Dice coefficient on bigrams)
 function similarity(a: string, b: string): number {
@@ -159,6 +160,22 @@ export async function detectArbitrage(): Promise<ScanResult> {
         deepLinkB: intraLink,
       });
     }
+  }
+
+  // Merge in sports arbs (uses team alias matching for better accuracy)
+  try {
+    const sportsResult = await detectSportsArbitrage();
+    // Deduplicate: only add sports arbs whose events aren't already matched
+    const existingEvents = new Set(opportunities.map(o => o.event.toLowerCase().slice(0, 50)));
+    for (const sportsOpp of sportsResult.opportunities) {
+      const key = sportsOpp.event.toLowerCase().slice(0, 50);
+      if (!existingEvents.has(key)) {
+        opportunities.push(sportsOpp);
+        existingEvents.add(key);
+      }
+    }
+  } catch {
+    // Sports scan failed, continue with what we have
   }
 
   // Sort by spread descending, cap at top 50 results
