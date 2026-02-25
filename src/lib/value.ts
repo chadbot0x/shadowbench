@@ -98,18 +98,25 @@ export async function findValuePicks(): Promise<ValuePick[]> {
   for (const event of kalshiEvents) {
     for (const km of event.markets || []) {
       const price = getKalshiYesPrice(km);
-      if (price > 0.01 && price < 0.99) {
+      if (price > 0.05 && price < 0.95) {
         kalshiFlat.push({ event, market: km, price });
       }
     }
   }
 
   // Cross-platform: find matching markets and use price disagreement
+  // Filter thresholds — no garbage picks
+  const MIN_PRICE = 0.05;   // ignore sub-5¢ markets (noise)
+  const MAX_PRICE = 0.95;   // ignore near-certainties
+  const MIN_VOLUME = 1000;  // at least $1K volume to be meaningful
+
   for (const pm of polymarkets) {
     const pmPrices = parseOutcomePrices(pm);
-    if (!pmPrices.yes || pmPrices.yes <= 0.01 || pmPrices.yes >= 0.99) continue;
+    if (!pmPrices.yes || pmPrices.yes <= MIN_PRICE || pmPrices.yes >= MAX_PRICE) continue;
 
     const pmVol = parseFloat(pm.volume || '0');
+    if (pmVol < MIN_VOLUME) continue;
+
     const cat = categorize(pm.category || '');
 
     for (const { event: kEvent, market: km, price: kalshiPrice } of kalshiFlat) {
@@ -153,7 +160,7 @@ export async function findValuePicks(): Promise<ValuePick[]> {
       const kEv = fairValue - kalshiPrice;
       const kEvPercent = (kEv / kalshiPrice) * 100;
 
-      if (Math.abs(kEvPercent) > 5) {
+      if (Math.abs(kEvPercent) > 5 && kalshiVol >= 500) {
         const direction: 'buy_yes' | 'buy_no' | 'fade' = kEv > 0 ? 'buy_yes' : 'fade';
         picks.push({
           id: `val-${++idCounter}`,
@@ -178,10 +185,11 @@ export async function findValuePicks(): Promise<ValuePick[]> {
   // Intra-market: Polymarket YES+NO doesn't sum to 1 → implied value gap
   for (const pm of polymarkets) {
     const prices = parseOutcomePrices(pm);
-    if (!prices.yes || !prices.no || prices.yes < 0.01 || prices.no < 0.01) continue;
+    if (!prices.yes || !prices.no || prices.yes < MIN_PRICE || prices.no < MIN_PRICE) continue;
 
     const sum = prices.yes + prices.no;
     const pmVol = parseFloat(pm.volume || '0');
+    if (pmVol < MIN_VOLUME) continue;
     const cat = categorize(pm.category || '');
 
     // If YES + NO < 0.95, there's free money (buy both)
@@ -237,12 +245,15 @@ export async function findValuePicks(): Promise<ValuePick[]> {
     }
   }
 
+  // Filter out absurd EV% (>100% usually means bad match or illiquid junk)
+  const sane = picks.filter(p => Math.abs(p.evPercent) <= 100);
+
   // Sort by absolute EV% descending
-  picks.sort((a, b) => Math.abs(b.evPercent) - Math.abs(a.evPercent));
+  sane.sort((a, b) => Math.abs(b.evPercent) - Math.abs(a.evPercent));
 
   // Deduplicate: keep best pick per market question
   const seen = new Map<string, ValuePick>();
-  for (const pick of picks) {
+  for (const pick of sane) {
     const key = pick.market.toLowerCase().slice(0, 60);
     const existing = seen.get(key);
     if (!existing || Math.abs(pick.evPercent) > Math.abs(existing.evPercent)) {
