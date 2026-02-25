@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ShadowBench — Trade Prediction Markets Like a Pro",
-  description: "Cross-platform arbitrage detection, real-time order books, and one-click execution across Polymarket and Kalshi",
+  title: "ShadowBench — Prediction Market Arbitrage Scanner",
+  description: "Discover cross-platform price discrepancies between Polymarket and Kalshi. Track spreads in real-time and trade with one click.",
 };
 
 export default function RootLayout({

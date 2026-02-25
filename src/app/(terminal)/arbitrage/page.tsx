@@ -2,18 +2,20 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GitCompare, RefreshCw, ChevronDown, ChevronUp, AlertCircle, Loader2, Zap, TrendingUp, Clock, Filter } from 'lucide-react';
+import { GitCompare, RefreshCw, AlertCircle, Loader2, Zap, TrendingUp, Clock, Filter, Star, ExternalLink } from 'lucide-react';
 import type { ArbitrageOpportunity, ScanResult } from '@/types';
+import { polymarketLink, kalshiLink } from '@/lib/links';
+import { addToWatchlist, removeFromWatchlist, isInWatchlist } from '@/lib/watchlist';
 
 function SkeletonCard() {
   return (
-    <div className="bg-surface border border-border rounded-xl p-5 animate-pulse">
-      <div className="h-4 bg-border rounded w-3/4 mb-3" />
-      <div className="flex gap-4 mb-3">
-        <div className="h-10 bg-border rounded flex-1" />
-        <div className="h-10 bg-border rounded flex-1" />
+    <div className="bg-surface border border-border rounded-xl p-6 animate-pulse">
+      <div className="h-5 bg-border rounded w-3/4 mb-4" />
+      <div className="flex gap-4 mb-4">
+        <div className="h-16 bg-border rounded flex-1" />
+        <div className="h-16 bg-border rounded flex-1" />
       </div>
-      <div className="h-3 bg-border rounded w-1/3" />
+      <div className="h-10 bg-border rounded w-full" />
     </div>
   );
 }
@@ -25,6 +27,183 @@ const SORT_OPTIONS = [
   { label: 'Volume', value: 'volume' },
 ] as const;
 
+function ConfidenceDots({ level }: { level: 'high' | 'medium' | 'low' }) {
+  const filled = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
+  return (
+    <div className="flex gap-1">
+      {[1, 2, 3].map(i => (
+        <span
+          key={i}
+          className={`w-2 h-2 rounded-full ${
+            i <= filled
+              ? level === 'high' ? 'bg-green' : level === 'medium' ? 'bg-gold' : 'bg-muted'
+              : 'bg-border'
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ArbCard({ arb, index }: { arb: ArbitrageOpportunity; index: number }) {
+  const [starred, setStarred] = useState(false);
+
+  useEffect(() => {
+    setStarred(isInWatchlist(arb.id));
+  }, [arb.id]);
+
+  const toggleStar = () => {
+    if (starred) {
+      removeFromWatchlist(arb.id);
+    } else {
+      addToWatchlist({ id: arb.id, type: 'arbitrage', addedAt: Date.now(), data: arb });
+    }
+    setStarred(!starred);
+  };
+
+  const isHot = arb.spreadPercent > 5;
+
+  // Build deep links
+  const polyLink = polymarketLink({ conditionId: arb.id.includes('cross') ? undefined : undefined, question: arb.event });
+  const kalLink = kalshiLink({});
+
+  // Determine which platform links to show
+  const platformAIsPolymarket = arb.platformA === 'Polymarket' || arb.platformA === 'Polymarket YES';
+  const platformBIsPolymarket = arb.platformB === 'Polymarket' || arb.platformB === 'Polymarket NO';
+  const showPolymarket = platformAIsPolymarket || platformBIsPolymarket || arb.type === 'intra-market';
+  const showKalshi = arb.platformA === 'Kalshi' || arb.platformB === 'Kalshi';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ delay: index * 0.03 }}
+      className={`bg-surface border rounded-2xl overflow-hidden transition-colors ${
+        isHot ? 'border-gold/40' : 'border-border hover:border-gold/20'
+      }`}
+    >
+      <div className="p-5 md:p-6">
+        {/* Header: event name + badges + star */}
+        <div className="flex items-start gap-3 mb-4">
+          {isHot && (
+            <span className="relative flex h-3 w-3 mt-1 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-gold" />
+            </span>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-base md:text-lg font-semibold text-foreground leading-snug mb-2">
+              {arb.event}
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] px-2 py-0.5 rounded bg-blue/10 text-blue font-medium">
+                {arb.category}
+              </span>
+              <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                arb.type === 'cross-platform' ? 'bg-purple-500/10 text-purple-400' : 'bg-blue/10 text-blue'
+              }`}>
+                {arb.type === 'cross-platform' ? 'Cross-Platform' : 'Intra-Market'}
+              </span>
+              <ConfidenceDots level={arb.confidence} />
+            </div>
+          </div>
+          <button
+            onClick={toggleStar}
+            className={`shrink-0 p-2 rounded-lg transition-colors ${
+              starred ? 'text-gold bg-gold/10' : 'text-muted hover:text-gold hover:bg-gold/5'
+            }`}
+          >
+            <Star className={`w-5 h-5 ${starred ? 'fill-current' : ''}`} />
+          </button>
+        </div>
+
+        {/* Price comparison - BIG and clear */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-green/5 border border-green/20 rounded-xl p-4 text-center">
+            <div className="text-xs text-muted mb-1">{arb.platformA}</div>
+            <div className="text-2xl md:text-3xl font-bold text-green">
+              {(arb.platformAPrice * 100).toFixed(1)}¢
+            </div>
+          </div>
+          <div className="bg-red/5 border border-red/20 rounded-xl p-4 text-center">
+            <div className="text-xs text-muted mb-1">{arb.platformB}</div>
+            <div className="text-2xl md:text-3xl font-bold text-red">
+              {(arb.platformBPrice * 100).toFixed(1)}¢
+            </div>
+          </div>
+        </div>
+
+        {/* Spread badge - prominent */}
+        <div className="flex items-center justify-center mb-4">
+          <span className="inline-flex items-center gap-2 bg-green/15 text-green px-4 py-2 rounded-full text-sm font-bold">
+            <TrendingUp className="w-4 h-4" />
+            {arb.spreadPercent.toFixed(1)}% Spread
+          </span>
+        </div>
+
+        {/* Volume + timestamp row */}
+        <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-muted mb-5">
+          {arb.volumeA !== undefined && (
+            <span>{arb.platformA}: ${((arb.volumeA || 0) / 1000).toFixed(0)}K vol</span>
+          )}
+          {arb.volumeB !== undefined && (
+            <span>{arb.platformB}: ${((arb.volumeB || 0) / 1000).toFixed(0)}K vol</span>
+          )}
+          <span className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            Just now
+          </span>
+        </div>
+
+        {/* Details */}
+        {arb.details && (
+          <p className="text-xs text-muted leading-relaxed mb-5 bg-background/50 rounded-lg p-3">
+            {arb.details}
+          </p>
+        )}
+
+        {/* Trade buttons - prominent, full-width on mobile */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {showPolymarket && (
+            <a
+              href="https://polymarket.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 bg-green/15 hover:bg-green/25 text-green font-semibold px-4 py-3 rounded-xl text-sm transition-colors"
+            >
+              Trade on Polymarket
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+          {showKalshi && (
+            <a
+              href="https://kalshi.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 bg-blue/15 hover:bg-blue/25 text-blue font-semibold px-4 py-3 rounded-xl text-sm transition-colors"
+            >
+              Trade on Kalshi
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+          {arb.type === 'intra-market' && (
+            <a
+              href="https://polymarket.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 bg-green/15 hover:bg-green/25 text-green font-semibold px-4 py-3 rounded-xl text-sm transition-colors sm:col-span-2"
+            >
+              Trade on Polymarket
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function ArbitragePage() {
   const [data, setData] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +211,6 @@ export default function ArbitragePage() {
   const [typeFilter, setTypeFilter] = useState<string>('All');
   const [minSpread, setMinSpread] = useState(0);
   const [sortBy, setSortBy] = useState('spread');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -67,7 +245,6 @@ export default function ArbitragePage() {
 
     if (sortBy === 'profit') result = [...result].sort((a, b) => b.potentialProfit - a.potentialProfit);
     else if (sortBy === 'volume') result = [...result].sort((a, b) => (b.volumeA || 0) - (a.volumeA || 0));
-    // default is spread, already sorted
 
     return result;
   }, [data, typeFilter, minSpread, sortBy]);
@@ -145,7 +322,6 @@ export default function ArbitragePage() {
         </select>
       </div>
 
-      {/* Error state */}
       {error && (
         <div className="bg-red/10 border border-red/20 rounded-xl p-6 text-center">
           <AlertCircle className="w-8 h-8 text-red mx-auto mb-2" />
@@ -159,14 +335,12 @@ export default function ArbitragePage() {
         </div>
       )}
 
-      {/* Loading */}
       {loading && !data && (
-        <div className="space-y-3">
-          {Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)}
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
         </div>
       )}
 
-      {/* Cards */}
       {!loading && !error && filtered.length === 0 && (
         <div className="text-center py-20">
           <GitCompare className="w-12 h-12 text-muted mx-auto mb-3" />
@@ -175,107 +349,14 @@ export default function ArbitragePage() {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         <AnimatePresence>
-          {filtered.map((arb, i) => {
-            const isExpanded = expandedId === arb.id;
-            const isHot = arb.spreadPercent > 5;
-            return (
-              <motion.div
-                key={arb.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ delay: i * 0.03 }}
-                className={`bg-surface border rounded-xl overflow-hidden transition-colors ${
-                  isHot ? 'border-gold/40' : 'border-border hover:border-gold/20'
-                }`}
-              >
-                <div className="p-4">
-                  {/* Top row: event name + expand button */}
-                  <div className="flex items-start gap-3 mb-3">
-                    <div className="shrink-0 w-3 flex justify-center pt-1">
-                      {isHot && (
-                        <span className="relative flex h-2.5 w-2.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-gold" />
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <p className="text-sm font-medium text-foreground truncate">{arb.event}</p>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
-                          arb.confidence === 'high' ? 'bg-green/15 text-green' :
-                          arb.confidence === 'medium' ? 'bg-gold/15 text-gold' :
-                          'bg-muted/15 text-muted'
-                        }`}>
-                          {arb.confidence.toUpperCase()}
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue/10 text-blue shrink-0">
-                          {arb.type === 'cross-platform' ? 'Cross' : 'Intra'}
-                        </span>
-                      </div>
-                      <span className="text-xs text-muted">{arb.category}</span>
-                    </div>
-                    <button
-                      onClick={() => setExpandedId(isExpanded ? null : arb.id)}
-                      className="text-muted hover:text-foreground transition-colors shrink-0"
-                    >
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                  </div>
-
-                  {/* Price row: wraps on mobile */}
-                  <div className="flex flex-wrap items-center gap-3 ml-6">
-                    <div className="text-center shrink-0">
-                      <div className="text-[10px] text-green">{arb.platformA}</div>
-                      <div className="text-sm font-bold text-green">{(arb.platformAPrice * 100).toFixed(1)}¢</div>
-                    </div>
-                    <div className="text-center shrink-0">
-                      <div className="text-[10px] text-red">{arb.platformB}</div>
-                      <div className="text-sm font-bold text-red">{(arb.platformBPrice * 100).toFixed(1)}¢</div>
-                    </div>
-                    <div className="text-center shrink-0">
-                      <div className="text-[10px] text-muted">Spread</div>
-                      <div className="text-sm font-bold text-gold">{arb.spreadPercent.toFixed(1)}%</div>
-                    </div>
-                    <div className="text-center shrink-0 hidden sm:block">
-                      <div className="text-[10px] text-muted">$100 →</div>
-                      <div className="text-sm font-bold text-green">${arb.potentialProfit.toFixed(2)}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="px-4 pb-4 pt-0 border-t border-border">
-                        <div className="mt-3 text-xs text-muted leading-relaxed">
-                          {arb.details}
-                        </div>
-                        <div className="mt-2 flex gap-4 text-xs text-muted">
-                          <span>Match Score: {(arb.matchScore * 100).toFixed(0)}%</span>
-                          {arb.volumeA !== undefined && <span>Vol A: ${((arb.volumeA || 0) / 1000).toFixed(0)}K</span>}
-                          {arb.volumeB !== undefined && <span>Vol B: ${((arb.volumeB || 0) / 1000).toFixed(0)}K</span>}
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
+          {filtered.map((arb, i) => (
+            <ArbCard key={arb.id} arb={arb} index={i} />
+          ))}
         </AnimatePresence>
       </div>
 
-      {/* Scan metadata */}
       {data?.metadata && (
         <div className="mt-6 text-center text-xs text-muted">
           Scanned {data.metadata.markets_scanned} markets in {data.metadata.scan_time_ms}ms

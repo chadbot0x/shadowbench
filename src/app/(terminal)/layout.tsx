@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BarChart3, GitCompare, PieChart, Menu, Search, Wallet } from 'lucide-react';
+import { BarChart3, GitCompare, Star, Menu, Search } from 'lucide-react';
 
 export default function TerminalLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -43,7 +43,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
   const navItems = [
     { href: '/markets', label: 'Markets', icon: BarChart3, badge: marketCount },
     { href: '/arbitrage', label: 'Arbitrage', icon: GitCompare, badge: arbCount, gold: true },
-    { href: '/portfolio', label: 'Portfolio', icon: PieChart },
+    { href: '/watchlist', label: 'Watchlist', icon: Star },
   ];
 
   const sidebarContent = (
@@ -129,7 +129,6 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-muted hover:text-foreground transition-colors shrink-0">
             <Menu className="w-5 h-5" />
           </button>
-          {/* Search: icon-only on mobile, full on desktop */}
           <div className="flex-1 max-w-md hidden md:block">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
@@ -143,16 +142,20 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
           <button className="md:hidden text-muted hover:text-foreground transition-colors shrink-0">
             <Search className="w-5 h-5" />
           </button>
-          {/* Wallet: hidden on mobile, full on desktop */}
-          <button className="ml-auto hidden md:flex items-center gap-2 bg-blue/10 text-blue px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue/20 transition-colors shrink-0">
-            <Wallet className="w-4 h-4" />
-            Connect Wallet
-          </button>
-          <button className="ml-auto md:hidden bg-blue/10 text-blue p-2 rounded-lg hover:bg-blue/20 transition-colors shrink-0">
-            <Wallet className="w-4 h-4" />
-          </button>
+          <Link
+            href="/watchlist"
+            className="ml-auto flex items-center gap-2 bg-gold/10 text-gold px-4 py-2 rounded-lg text-sm font-medium hover:bg-gold/20 transition-colors shrink-0"
+          >
+            <Star className="w-4 h-4" />
+            <span className="hidden md:inline">Watchlist</span>
+          </Link>
         </header>
-        <main className="flex-1 overflow-auto p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-auto p-4 md:p-6">
+          {children}
+          <footer className="mt-12 pt-4 border-t border-border text-center text-xs text-muted">
+            ShadowBench does not execute trades. You trade directly on each platform.
+          </footer>
+        </main>
       </div>
     </div>
   );

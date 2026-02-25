@@ -34,16 +34,11 @@ export interface OrderBook {
   timestamp: string;
 }
 
-export interface Position {
+export interface WatchlistItem {
   id: string;
-  market: string;
-  side: 'YES' | 'NO';
-  entry: number;
-  current: number;
-  size: number;
-  pnl: number;
-  pnlPercent: number;
-  platform: 'Polymarket' | 'Kalshi';
+  type: 'market' | 'arbitrage';
+  addedAt: number;
+  data: any;
 }
 
 export interface KalshiEvent {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, BarChart3, GitCompare, Radio, PieChart, Search, Zap, TrendingUp } from 'lucide-react';
+import { ArrowRight, GitCompare, Radio, Zap, Star, Search, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 
 interface TickerItem {
@@ -13,24 +13,25 @@ interface TickerItem {
 const features = [
   {
     icon: GitCompare,
-    title: 'Arbitrage Scanner',
-    description: 'Real-time cross-platform arb detection. Polymarket × Kalshi spread monitoring with confidence scoring.',
+    title: 'Cross-Platform Scanner',
+    description: 'Scan Polymarket × Kalshi for price gaps. Fuzzy matching finds the same events across platforms.',
     gold: true,
   },
   {
-    icon: BarChart3,
-    title: 'Cross-Platform Trading',
-    description: 'Trade on Polymarket and Kalshi from a single interface. Unified order books and real-time pricing.',
-  },
-  {
     icon: Radio,
-    title: 'Real-Time Data',
-    description: 'Live prices with 30-second refresh. Order book depth, volume, and price movement — all streaming.',
+    title: 'Real-Time Alerts',
+    description: '30-second refresh cycle. Never miss a spread. Always see the latest prices.',
+    badge: 'Coming Soon',
   },
   {
-    icon: PieChart,
-    title: 'Portfolio Tracking',
-    description: 'Unified P&L across all platforms. Win rate, position breakdown, and historical performance.',
+    icon: Zap,
+    title: 'One-Click Trading',
+    description: 'Deep links straight to the platform. Zero friction — find the arb, click, trade.',
+  },
+  {
+    icon: Star,
+    title: 'Watchlist',
+    description: 'Save and track your favorite opportunities. Monitor spreads on the markets you care about.',
   },
 ];
 
@@ -41,9 +42,9 @@ const stats = [
 ];
 
 const steps = [
-  { icon: Search, title: 'We Scan Platforms', desc: 'Continuously monitor Polymarket, Kalshi, and more for price discrepancies.' },
-  { icon: Zap, title: 'AI Detects Mispricings', desc: 'Fuzzy matching and spread analysis identify risk-free arbitrage opportunities.' },
-  { icon: TrendingUp, title: 'You Capture the Spread', desc: 'Act on opportunities with full breakdown of profit potential and confidence.' },
+  { icon: Search, title: 'Discover', desc: 'We continuously scan Polymarket and Kalshi for price discrepancies across thousands of markets.' },
+  { icon: TrendingUp, title: 'Track', desc: 'Monitor spreads in real-time with confidence scoring, volume data, and match quality indicators.' },
+  { icon: Zap, title: 'Act', desc: 'One click to open the platform and trade. Deep links take you straight to the event.' },
 ];
 
 function Ticker({ items }: { items: TickerItem[] }) {
@@ -87,7 +88,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Grid background */}
       <div
         className="absolute inset-0 opacity-[0.03]"
         style={{
@@ -96,12 +96,10 @@ export default function LandingPage() {
         }}
       />
 
-      {/* Live ticker */}
       <div className="relative z-10">
         <Ticker items={ticker} />
       </div>
 
-      {/* Nav */}
       <nav className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
         <div className="text-xl font-bold text-foreground tracking-tight">
           Shadow<span className="text-blue">Bench</span>
@@ -111,7 +109,6 @@ export default function LandingPage() {
         </Link>
       </nav>
 
-      {/* Hero */}
       <main className="relative z-10 max-w-7xl mx-auto px-8 pt-20 pb-16">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -126,7 +123,7 @@ export default function LandingPage() {
             </span>
           </h1>
           <p className="text-lg md:text-xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
-            Scan Polymarket and Kalshi for price discrepancies. Detect risk-free spreads in real-time. Capture alpha before anyone else.
+            Find cross-platform price discrepancies before anyone else. One click to trade.
           </p>
           <Link href="/arbitrage">
             <motion.button
@@ -141,7 +138,6 @@ export default function LandingPage() {
           </Link>
         </motion.div>
 
-        {/* Social proof */}
         <div className="flex justify-center gap-12 mt-16 mb-20">
           {stats.map((s) => (
             <motion.div
@@ -157,9 +153,9 @@ export default function LandingPage() {
           ))}
         </div>
 
-        {/* How It Works */}
+        {/* Discover · Track · Act */}
         <div className="max-w-3xl mx-auto mb-24">
-          <h2 className="text-center text-lg font-semibold text-foreground mb-8">How It Works</h2>
+          <h2 className="text-center text-lg font-semibold text-foreground mb-8">Discover · Track · Act</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {steps.map((step, i) => (
               <motion.div
@@ -179,7 +175,7 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Scanner preview mock */}
+        {/* Scanner preview */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -221,20 +217,29 @@ export default function LandingPage() {
               }`}
             >
               <feature.icon className={`w-8 h-8 mb-4 ${feature.gold ? 'text-gold' : 'text-blue'}`} />
-              <h3 className="text-foreground font-semibold mb-2">{feature.title}</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-foreground font-semibold">{feature.title}</h3>
+                {'badge' in feature && feature.badge && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-gold/15 text-gold font-medium">{feature.badge}</span>
+                )}
+              </div>
               <p className="text-muted text-sm leading-relaxed">{feature.description}</p>
             </motion.div>
           ))}
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="relative z-10 border-t border-border py-8 px-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-between text-sm text-muted">
-          <span>ShadowBench</span>
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted">
+          <div>
+            <span>ShadowBench</span>
+            <span className="mx-2">·</span>
+            <span className="text-xs">ShadowBench does not execute trades. You trade directly on each platform.</span>
+          </div>
           <div className="flex gap-6">
             <Link href="/markets" className="hover:text-foreground transition-colors">Markets</Link>
             <Link href="/arbitrage" className="hover:text-foreground transition-colors">Arbitrage</Link>
+            <Link href="/watchlist" className="hover:text-foreground transition-colors">Watchlist</Link>
           </div>
         </div>
       </footer>
