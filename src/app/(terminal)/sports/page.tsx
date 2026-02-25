@@ -2,50 +2,67 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, RefreshCw, TrendingUp, Clock, Zap, ExternalLink, Loader2, Calendar, Newspaper, Activity } from 'lucide-react';
+import {
+  Trophy, RefreshCw, TrendingUp, Clock, Zap, ExternalLink, Loader2,
+  Calendar, Newspaper, Activity, ChevronDown, ChevronUp, BarChart3,
+  AlertTriangle,
+} from 'lucide-react';
 import type { ArbitrageOpportunity } from '@/types';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
+   Types
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-interface SportsResponse {
-  opportunities: (ArbitrageOpportunity & { sport?: string; matchup?: string })[];
-  metadata: { scan_time_ms: number; markets_scanned: number; matches_found: number };
-}
+interface TeamInfo { name: string; record?: string; logo?: string; score?: number }
 
 interface SportEvent {
   id: string;
+  espnId: string;
   league: 'NBA' | 'NFL' | 'MLB' | 'NHL';
-  homeTeam: string;
-  awayTeam: string;
+  homeTeam: TeamInfo;
+  awayTeam: TeamInfo;
   startTime: string;
   status: 'scheduled' | 'in_progress' | 'final';
-  score?: { home: number; away: number };
+  statusDetail?: string;
   venue?: string;
   broadcast?: string;
   hasPolymarket: boolean;
   hasKalshi: boolean;
   polymarketSlug?: string;
   kalshiTicker?: string;
+  odds?: { spread?: string; overUnder?: string; moneyline?: { home: string; away: string } };
+  topPerformers?: { name: string; team: string; statLine: string }[];
+  teamStats?: { home: Record<string, string>; away: Record<string, string> };
+  winProbability?: { home: number; away: number };
+  injuries?: { team: string; player: string; status: string }[];
 }
 
 interface SportsArticle {
-  id: string;
-  headline: string;
-  description: string;
-  published: string;
-  league: string;
-  link: string;
-  image?: string;
+  id: string; headline: string; description: string; published: string;
+  league: string; link: string; image?: string;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
+interface SportsResponse {
+  opportunities: (ArbitrageOpportunity & { sport?: string; matchup?: string })[];
+  metadata: { scan_time_ms: number; markets_scanned: number; matches_found: number };
+}
+
+interface StatLeader { name: string; team: string; value: string; headshot?: string }
+interface LeagueStats {
+  league: string;
+  categories: { name: string; displayName: string; leaders: StatLeader[] }[];
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Constants
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 const TABS = [
   { id: 'schedule', label: 'Schedule', icon: Calendar },
   { id: 'arbs', label: 'Arbs', icon: Zap },
   { id: 'news', label: 'News', icon: Newspaper },
+  { id: 'stats', label: 'Stats', icon: BarChart3 },
 ] as const;
-
 type TabId = typeof TABS[number]['id'];
 
 const LEAGUE_EMOJI: Record<string, string> = { NBA: '🏀', NFL: '🏈', MLB: '⚾', NHL: '🏒' };
@@ -60,7 +77,9 @@ const SPORT_COLORS: Record<string, string> = {
   MMA: 'bg-purple-500/15 text-purple-400',
 };
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
+   Helpers
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -81,56 +100,299 @@ function formatDate(dateStr: string): string {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-
   if (d.toDateString() === today.toDateString()) return 'Today';
   if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
   return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-// ─── Schedule Tab ────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
+   Game Card (expandable)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function GameCard({ ev }: { ev: SportEvent }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-surface border border-border hover:border-gold/20 rounded-xl transition-colors overflow-hidden">
+      {/* Collapsed header — always visible */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full p-4 text-left flex items-center gap-3"
+      >
+        {/* League */}
+        <span className="text-xl w-8 text-center flex-shrink-0">{LEAGUE_EMOJI[ev.league] || '🏅'}</span>
+
+        {/* Teams + score */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-semibold text-foreground text-sm truncate">
+              {ev.awayTeam.name}
+              {ev.awayTeam.score != null && <span className="ml-1 text-muted font-bold">{ev.awayTeam.score}</span>}
+              <span className="text-muted mx-1.5">@</span>
+              {ev.homeTeam.name}
+              {ev.homeTeam.score != null && <span className="ml-1 text-muted font-bold">{ev.homeTeam.score}</span>}
+            </span>
+
+            {/* Status badge */}
+            {ev.status === 'in_progress' && (
+              <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-red/15 text-red font-medium flex-shrink-0">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red" />
+                </span>
+                {ev.statusDetail || 'LIVE'}
+              </span>
+            )}
+            {ev.status === 'final' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/15 text-muted font-medium flex-shrink-0">✅ Final</span>
+            )}
+            {ev.status === 'scheduled' && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue/10 text-blue font-medium flex-shrink-0">
+                ⏰ {formatTime(ev.startTime)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-muted flex-wrap">
+            <span>{formatDate(ev.startTime)}</span>
+            {ev.homeTeam.record && <span>· {ev.homeTeam.record}</span>}
+            {ev.odds?.spread && <span>· {ev.odds.spread}</span>}
+            {ev.odds?.overUnder && <span>· {ev.odds.overUnder}</span>}
+            {ev.broadcast && <span className="hidden md:inline">· 📺 {ev.broadcast}</span>}
+          </div>
+        </div>
+
+        {/* Market badges */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {ev.hasPolymarket && (
+            <span className="text-[10px] px-2 py-1 rounded bg-green/10 text-green">📊 Poly</span>
+          )}
+          {ev.hasKalshi && (
+            <span className="text-[10px] px-2 py-1 rounded bg-blue/10 text-blue">📊 Kalshi</span>
+          )}
+          {!ev.hasPolymarket && !ev.hasKalshi && (
+            <span className="text-[10px] text-muted/50">No markets</span>
+          )}
+        </div>
+
+        {/* Expand toggle */}
+        <div className="flex-shrink-0 text-muted">
+          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </div>
+      </button>
+
+      {/* Expanded detail */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 border-t border-border pt-3 space-y-4">
+
+              {/* Win probability bar */}
+              {ev.winProbability && (
+                <div>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-muted">{ev.awayTeam.name} {ev.winProbability.away}%</span>
+                    <span className="text-[10px] text-muted/60 uppercase">Win Probability</span>
+                    <span className="text-muted">{ev.homeTeam.name} {ev.winProbability.home}%</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-border overflow-hidden flex">
+                    <div className="bg-blue h-full transition-all" style={{ width: `${ev.winProbability.away}%` }} />
+                    <div className="bg-gold h-full transition-all" style={{ width: `${ev.winProbability.home}%` }} />
+                  </div>
+                </div>
+              )}
+
+              {/* Odds detail */}
+              {ev.odds && (ev.odds.spread || ev.odds.moneyline) && (
+                <div className="grid grid-cols-3 gap-2">
+                  {ev.odds.spread && (
+                    <div className="bg-white/5 rounded-lg p-2 text-center">
+                      <div className="text-[10px] text-muted mb-0.5">Spread</div>
+                      <div className="text-sm font-medium text-foreground">{ev.odds.spread}</div>
+                    </div>
+                  )}
+                  {ev.odds.overUnder && (
+                    <div className="bg-white/5 rounded-lg p-2 text-center">
+                      <div className="text-[10px] text-muted mb-0.5">Total</div>
+                      <div className="text-sm font-medium text-foreground">{ev.odds.overUnder}</div>
+                    </div>
+                  )}
+                  {ev.odds.moneyline && (
+                    <div className="bg-white/5 rounded-lg p-2 text-center">
+                      <div className="text-[10px] text-muted mb-0.5">Moneyline</div>
+                      <div className="text-xs font-medium text-foreground">
+                        {ev.awayTeam.name.split(' ').pop()} {ev.odds.moneyline.away} / {ev.homeTeam.name.split(' ').pop()} {ev.odds.moneyline.home}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Top performers */}
+              {ev.topPerformers && ev.topPerformers.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-muted mb-2 flex items-center gap-1.5">
+                    <Activity className="w-3.5 h-3.5" /> Top Performers
+                  </h4>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    {ev.topPerformers.map((p, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs py-1">
+                        <span className="text-foreground font-medium truncate">{p.name}</span>
+                        <span className="text-muted/60 text-[10px]">{p.team.split(' ').pop()}</span>
+                        <span className="ml-auto text-gold font-mono text-[11px] flex-shrink-0">{p.statLine}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Team stats comparison */}
+              {ev.teamStats && (Object.keys(ev.teamStats.home).length > 0 || Object.keys(ev.teamStats.away).length > 0) && (
+                <div>
+                  <h4 className="text-xs font-medium text-muted mb-2">Team Stats</h4>
+                  <div className="space-y-1">
+                    {Object.keys(ev.teamStats.home).slice(0, 8).map(key => (
+                      <div key={key} className="flex items-center text-xs">
+                        <span className="w-16 text-right font-mono text-foreground">{ev.teamStats!.away[key] || '—'}</span>
+                        <span className="flex-1 text-center text-muted/60 text-[10px] uppercase px-2 truncate">{key}</span>
+                        <span className="w-16 text-left font-mono text-foreground">{ev.teamStats!.home[key] || '—'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Injuries */}
+              {ev.injuries && ev.injuries.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-medium text-muted mb-2 flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-orange-400" /> Injuries
+                  </h4>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    {ev.injuries.map((inj, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs py-0.5">
+                        <span className="text-foreground truncate">{inj.player}</span>
+                        <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${
+                          inj.status.toLowerCase().includes('out') ? 'bg-red/15 text-red' :
+                          inj.status.toLowerCase().includes('day') ? 'bg-orange-500/15 text-orange-400' :
+                          'bg-yellow-500/15 text-yellow-400'
+                        }`}>
+                          {inj.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Market links */}
+              {(ev.hasPolymarket || ev.hasKalshi) && (
+                <div className="flex gap-2 pt-1">
+                  {ev.hasPolymarket && (
+                    <a
+                      href={ev.polymarketSlug ? `https://polymarket.com/event/${ev.polymarketSlug}` : 'https://polymarket.com'}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs bg-green/10 hover:bg-green/20 text-green px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Trade on Polymarket <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                  {ev.hasKalshi && (
+                    <a
+                      href={ev.kalshiTicker ? `https://kalshi.com/markets/${ev.kalshiTicker}` : 'https://kalshi.com'}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs bg-blue/10 hover:bg-blue/20 text-blue px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      Trade on Kalshi <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Venue */}
+              {ev.venue && (
+                <div className="text-[10px] text-muted/50 pt-1">📍 {ev.venue}</div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Schedule Tab
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 function ScheduleTab() {
   const [events, setEvents] = useState<SportEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [leagueFilter, setLeagueFilter] = useState('All');
 
-  useEffect(() => {
-    fetch('/api/sports/events')
-      .then(r => r.ok ? r.json() : { events: [] })
-      .then(d => setEvents(d.events || []))
-      .catch(() => setEvents([]))
-      .finally(() => setLoading(false));
+  const fetchEvents = useCallback(async () => {
+    try {
+      const r = await fetch('/api/sports/events');
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      setEvents(d.events || []);
+    } catch {
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchEvents();
+    const interval = setInterval(fetchEvents, 15000);
+    return () => clearInterval(interval);
+  }, [fetchEvents]);
 
   const filtered = useMemo(() => {
     if (leagueFilter === 'All') return events;
     return events.filter(e => e.league === leagueFilter);
   }, [events, leagueFilter]);
 
+  const liveCount = events.filter(e => e.status === 'in_progress').length;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 gap-2 text-muted">
-        <Loader2 className="w-5 h-5 animate-spin" />
-        <span className="text-sm">Loading schedule...</span>
+        <Loader2 className="w-5 h-5 animate-spin" /> <span className="text-sm">Loading schedule...</span>
       </div>
     );
   }
 
   return (
     <div>
-      {/* League filters */}
-      <div className="flex flex-wrap gap-1 mb-5">
-        {LEAGUE_FILTERS.map(l => (
-          <button
-            key={l}
-            onClick={() => setLeagueFilter(l)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              leagueFilter === l ? 'bg-gold/15 text-gold' : 'text-muted hover:text-foreground hover:bg-white/5'
-            }`}
-          >
-            {l !== 'All' && `${LEAGUE_EMOJI[l]} `}{l}
-          </button>
-        ))}
+      {/* Filters + live count */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex flex-wrap gap-1">
+          {LEAGUE_FILTERS.map(l => (
+            <button key={l} onClick={() => setLeagueFilter(l)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                leagueFilter === l ? 'bg-gold/15 text-gold' : 'text-muted hover:text-foreground hover:bg-white/5'
+              }`}>
+              {l !== 'All' && `${LEAGUE_EMOJI[l]} `}{l}
+            </button>
+          ))}
+        </div>
+        {liveCount > 0 && (
+          <span className="flex items-center gap-1.5 text-xs text-red font-medium">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red" />
+            </span>
+            {liveCount} Live
+          </span>
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -141,99 +403,26 @@ function ScheduleTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          <AnimatePresence>
-            {filtered.map((ev, i) => (
-              <motion.div
-                key={ev.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.02 }}
-                className="bg-surface border border-border hover:border-gold/20 rounded-xl p-4 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  {/* League badge */}
-                  <span className="text-xl w-8 text-center flex-shrink-0">{LEAGUE_EMOJI[ev.league] || '🏅'}</span>
-
-                  {/* Main content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-foreground text-sm truncate">
-                        {ev.awayTeam} vs {ev.homeTeam}
-                      </span>
-                      {/* Status badge */}
-                      {ev.status === 'in_progress' && (
-                        <span className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green/15 text-green font-medium flex-shrink-0">
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green opacity-75" />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green" />
-                          </span>
-                          LIVE
-                        </span>
-                      )}
-                      {ev.status === 'final' && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted/15 text-muted font-medium flex-shrink-0">✅ Final</span>
-                      )}
-                      {ev.status === 'scheduled' && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue/10 text-blue font-medium flex-shrink-0">⏰ {formatTime(ev.startTime)}</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-muted">
-                      <span>{formatDate(ev.startTime)}</span>
-                      {ev.score && (
-                        <span className="font-bold text-foreground">
-                          {ev.score.away} - {ev.score.home}
-                        </span>
-                      )}
-                      {ev.broadcast && <span>· {ev.broadcast}</span>}
-                      {ev.venue && <span className="hidden md:inline">· {ev.venue}</span>}
-                    </div>
-                  </div>
-
-                  {/* Market badges */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {ev.hasPolymarket && (
-                      <a
-                        href={ev.polymarketSlug ? `https://polymarket.com/event/${ev.polymarketSlug}` : 'https://polymarket.com'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] px-2 py-1 rounded bg-green/10 text-green hover:bg-green/20 transition-colors"
-                      >
-                        📊 Poly
-                      </a>
-                    )}
-                    {ev.hasKalshi && (
-                      <a
-                        href={ev.kalshiTicker ? `https://kalshi.com/markets/${ev.kalshiTicker}` : 'https://kalshi.com'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] px-2 py-1 rounded bg-blue/10 text-blue hover:bg-blue/20 transition-colors"
-                      >
-                        📊 Kalshi
-                      </a>
-                    )}
-                    {!ev.hasPolymarket && !ev.hasKalshi && (
-                      <span className="text-[10px] text-muted/50">No markets</span>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+          {filtered.map((ev, i) => (
+            <motion.div key={ev.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}>
+              <GameCard ev={ev} />
+            </motion.div>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Arbs Tab ────────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
+   Arbs Tab
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 function ArbsTab() {
   const [data, setData] = useState<SportsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [sportFilter, setSportFilter] = useState('All');
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
   const SPORTS = ['All', 'NBA', 'NFL', 'MLB', 'NHL', 'Soccer', 'MMA'] as const;
 
   const fetchData = useCallback(async () => {
@@ -243,11 +432,7 @@ function ArbsTab() {
       const result = await res.json();
       setData(result);
       setLastUpdated(new Date());
-    } catch {
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
+    } catch { setData(null); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
@@ -266,7 +451,6 @@ function ArbsTab() {
 
   return (
     <div>
-      {/* Summary row */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         {[
           { label: 'Sports Arbs', value: data?.metadata?.matches_found ?? '—', icon: Zap, color: 'text-gold' },
@@ -283,25 +467,18 @@ function ArbsTab() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap gap-1 mb-5">
         {SPORTS.map(s => (
-          <button
-            key={s}
-            onClick={() => setSportFilter(s)}
+          <button key={s} onClick={() => setSportFilter(s)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               sportFilter === s ? 'bg-gold/15 text-gold' : 'text-muted hover:text-foreground hover:bg-white/5'
-            }`}
-          >
-            {s}
-          </button>
+            }`}>{s}</button>
         ))}
       </div>
 
       {loading && !data && (
         <div className="flex items-center justify-center py-20 gap-2 text-muted">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          <span className="text-sm">Scanning sports markets...</span>
+          <Loader2 className="w-5 h-5 animate-spin" /> <span className="text-sm">Scanning sports markets...</span>
         </div>
       )}
 
@@ -322,31 +499,21 @@ function ArbsTab() {
             const sport = arb.sport || arb.category;
             const colorClass = SPORT_COLORS[sport] || 'bg-blue/10 text-blue';
             return (
-              <motion.div
-                key={arb.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ delay: i * 0.03 }}
-                className="bg-surface border border-border hover:border-gold/20 rounded-2xl overflow-hidden transition-colors"
-              >
+              <motion.div key={arb.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }} transition={{ delay: i * 0.03 }}
+                className="bg-surface border border-border hover:border-gold/20 rounded-2xl overflow-hidden transition-colors">
                 <div className="p-5">
                   <div className="flex items-start gap-3 mb-4">
                     <div className="flex-1 min-w-0">
-                      <p className="text-base font-semibold text-foreground leading-snug mb-2">
-                        {arb.matchup || arb.event}
-                      </p>
+                      <p className="text-base font-semibold text-foreground leading-snug mb-2">{arb.matchup || arb.event}</p>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${colorClass}`}>{sport}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
                           arb.type === 'cross-platform' ? 'bg-purple-500/10 text-purple-400' : 'bg-blue/10 text-blue'
-                        }`}>
-                          {arb.type === 'cross-platform' ? 'Cross-Platform' : 'Intra-Market'}
-                        </span>
+                        }`}>{arb.type === 'cross-platform' ? 'Cross-Platform' : 'Intra-Market'}</span>
                       </div>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="bg-green/5 border border-green/20 rounded-xl p-3 text-center">
                       <div className="text-xs text-muted mb-1">{arb.platformA}</div>
@@ -357,14 +524,11 @@ function ArbsTab() {
                       <div className="text-xl font-bold text-red">{(arb.platformBPrice * 100).toFixed(1)}¢</div>
                     </div>
                   </div>
-
                   <div className="flex items-center justify-center mb-4">
                     <span className="inline-flex items-center gap-2 bg-green/15 text-green px-4 py-2 rounded-full text-sm font-bold">
-                      <TrendingUp className="w-4 h-4" />
-                      {arb.spreadPercent.toFixed(1)}% Spread
+                      <TrendingUp className="w-4 h-4" /> {arb.spreadPercent.toFixed(1)}% Spread
                     </span>
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <a href={arb.deepLinkA || 'https://polymarket.com'} target="_blank" rel="noopener noreferrer"
                       className="flex items-center justify-center gap-2 bg-green/15 hover:bg-green/25 text-green font-semibold px-4 py-2.5 rounded-xl text-sm transition-colors">
@@ -385,7 +549,9 @@ function ArbsTab() {
   );
 }
 
-// ─── News Tab ────────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
+   News Tab
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 function NewsTab() {
   const [articles, setArticles] = useState<SportsArticle[]>([]);
@@ -402,8 +568,7 @@ function NewsTab() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20 gap-2 text-muted">
-        <Loader2 className="w-5 h-5 animate-spin" />
-        <span className="text-sm">Loading news...</span>
+        <Loader2 className="w-5 h-5 animate-spin" /> <span className="text-sm">Loading news...</span>
       </div>
     );
   }
@@ -411,7 +576,6 @@ function NewsTab() {
   return (
     <div>
       <p className="text-xs text-muted mb-4">Sports news that could move markets</p>
-
       {articles.length === 0 ? (
         <div className="text-center py-16">
           <Newspaper className="w-10 h-10 text-muted mx-auto mb-3" />
@@ -421,16 +585,9 @@ function NewsTab() {
       ) : (
         <div className="space-y-1">
           {articles.map((article, i) => (
-            <motion.a
-              key={article.id}
-              href={article.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.02 }}
-              className="flex items-start gap-3 p-3 rounded-xl hover:bg-surface transition-colors group"
-            >
+            <motion.a key={article.id} href={article.link} target="_blank" rel="noopener noreferrer"
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.02 }}
+              className="flex items-start gap-3 p-3 rounded-xl hover:bg-surface transition-colors group">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground group-hover:text-gold transition-colors leading-snug mb-1">
                   {article.headline}
@@ -451,14 +608,96 @@ function NewsTab() {
   );
 }
 
-// ─── Main Page ───────────────────────────────────────────────────────────────
+/* ═══════════════════════════════════════════════════════════════════════════
+   Stats Tab
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function StatsTab() {
+  const [data, setData] = useState<LeagueStats[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeLeague, setActiveLeague] = useState('NBA');
+
+  useEffect(() => {
+    fetch('/api/sports/stats')
+      .then(r => r.ok ? r.json() : { leagues: [] })
+      .then(d => {
+        setData(d.leagues || []);
+        if (d.leagues?.length > 0 && !d.leagues.find((l: LeagueStats) => l.league === activeLeague)) {
+          setActiveLeague(d.leagues[0].league);
+        }
+      })
+      .catch(() => setData([]))
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 gap-2 text-muted">
+        <Loader2 className="w-5 h-5 animate-spin" /> <span className="text-sm">Loading stats...</span>
+      </div>
+    );
+  }
+
+  const league = data.find(l => l.league === activeLeague);
+  const availableLeagues = data.map(l => l.league);
+
+  return (
+    <div>
+      <p className="text-xs text-muted mb-4">League stat leaders — useful context for informed bets</p>
+
+      {/* League switcher */}
+      <div className="flex flex-wrap gap-1 mb-5">
+        {availableLeagues.map(l => (
+          <button key={l} onClick={() => setActiveLeague(l)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              activeLeague === l ? 'bg-gold/15 text-gold' : 'text-muted hover:text-foreground hover:bg-white/5'
+            }`}>
+            {LEAGUE_EMOJI[l] || '🏅'} {l}
+          </button>
+        ))}
+      </div>
+
+      {!league || league.categories.length === 0 ? (
+        <div className="text-center py-16">
+          <BarChart3 className="w-10 h-10 text-muted mx-auto mb-3" />
+          <p className="text-foreground font-medium mb-1">No stats available</p>
+          <p className="text-xs text-muted">Season stats will appear here when the league is active.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {league.categories.map(cat => (
+            <div key={cat.name} className="bg-surface border border-border rounded-xl p-4">
+              <h4 className="text-xs font-medium text-gold mb-3 uppercase tracking-wide">{cat.displayName}</h4>
+              <div className="space-y-1.5">
+                {cat.leaders.map((leader, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <span className={`w-5 text-center font-mono ${i === 0 ? 'text-gold' : i < 3 ? 'text-foreground' : 'text-muted'}`}>
+                      {i + 1}
+                    </span>
+                    <span className="text-foreground font-medium truncate flex-1">{leader.name}</span>
+                    <span className="text-muted/60 text-[10px]">{leader.team}</span>
+                    <span className="font-mono text-gold text-[11px] ml-1">{leader.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Main Page
+   ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function SportsPage() {
   const [activeTab, setActiveTab] = useState<TabId>('schedule');
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Trophy className="w-6 h-6 text-gold" />
         <h1 className="text-2xl font-bold text-foreground">Sports</h1>
@@ -473,28 +712,21 @@ export default function SportsPage() {
         </div>
       </div>
 
-      {/* Tab navigation */}
       <div className="flex gap-1 mb-6 bg-surface border border-border rounded-xl p-1">
         {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center ${
-              activeTab === tab.id
-                ? 'bg-gold/15 text-gold'
-                : 'text-muted hover:text-foreground hover:bg-white/5'
-            }`}
-          >
-            <tab.icon className="w-4 h-4" />
-            {tab.label}
+              activeTab === tab.id ? 'bg-gold/15 text-gold' : 'text-muted hover:text-foreground hover:bg-white/5'
+            }`}>
+            <tab.icon className="w-4 h-4" /> {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
       {activeTab === 'schedule' && <ScheduleTab />}
       {activeTab === 'arbs' && <ArbsTab />}
       {activeTab === 'news' && <NewsTab />}
+      {activeTab === 'stats' && <StatsTab />}
     </div>
   );
 }
