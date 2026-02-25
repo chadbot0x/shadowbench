@@ -23,7 +23,7 @@ export default function EmbedPage() {
         <h1 className="text-2xl font-bold text-foreground">Embed Widget</h1>
       </div>
 
-      <p className="text-sm text-muted mb-8">Add a live ShadowBench widget to your site. Shows real-time arb count and best spread.</p>
+      <p className="text-sm text-muted mb-8">Add a live MotionHQ widget to your site. Shows real-time arb count and best spread.</p>
 
       {/* Preview */}
       <div className="mb-8">

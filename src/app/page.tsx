@@ -14,24 +14,24 @@ const features = [
   {
     icon: GitCompare,
     title: 'Cross-Platform Scanner',
-    description: 'Scan Polymarket × Kalshi for price gaps. Fuzzy matching finds the same events across platforms.',
+    description: 'Hunt down inefficiencies across Polymarket × Kalshi. Professional-grade matching finds identical events trading at different prices.',
     gold: true,
   },
   {
     icon: Radio,
     title: 'Real-Time Alerts',
-    description: '30-second refresh cycle. Never miss a spread. Always see the latest prices.',
+    description: 'Elite-level market monitoring. 30-second refresh keeps you ahead of the competition.',
     badge: 'Coming Soon',
   },
   {
     icon: Zap,
-    title: 'One-Click Trading',
-    description: 'Deep links straight to the platform. Zero friction — find the arb, click, trade.',
+    title: 'One-Click Execution',
+    description: 'Command center precision. Direct platform access with zero friction between opportunity and action.',
   },
   {
     icon: Star,
     title: 'Watchlist',
-    description: 'Save and track your favorite opportunities. Monitor spreads on the markets you care about.',
+    description: 'Track your plays like a pro. Monitor spreads on your priority markets with elite focus.',
   },
 ];
 
@@ -102,7 +102,7 @@ export default function LandingPage() {
 
       <nav className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto">
         <div className="text-xl font-bold text-foreground tracking-tight">
-          Shadow<span className="text-blue">Bench</span>
+          MotionHQ
         </div>
         <Link href="/arbitrage" className="text-sm text-muted hover:text-foreground transition-colors">
           Launch Scanner →
@@ -117,13 +117,12 @@ export default function LandingPage() {
           className="text-center max-w-4xl mx-auto"
         >
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6">
-            Prediction Market{' '}
             <span className="bg-clip-text text-transparent" style={{ backgroundImage: 'linear-gradient(135deg, #4a9eff, #ffd700)' }}>
-              Arbitrage
+              Motion Detected.
             </span>
           </h1>
           <p className="text-lg md:text-xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
-            Find cross-platform price discrepancies before anyone else. One click to trade.
+            Cross-platform arbitrage scanner with elite sports stats and real-time market odds.
           </p>
           <Link href="/arbitrage">
             <motion.button
@@ -132,7 +131,7 @@ export default function LandingPage() {
               className="inline-flex items-center gap-2 font-semibold px-8 py-4 rounded-lg text-lg transition-all text-background"
               style={{ background: 'linear-gradient(135deg, #ffd700, #ffaa00)' }}
             >
-              Start Scanning
+              Prove you know ball
               <ArrowRight className="w-5 h-5" />
             </motion.button>
           </Link>
@@ -232,9 +231,9 @@ export default function LandingPage() {
       <footer className="relative z-10 border-t border-border py-8 px-8">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted">
           <div>
-            <span>ShadowBench</span>
+            <span>MotionHQ</span>
             <span className="mx-2">·</span>
-            <span className="text-xs">ShadowBench does not execute trades. You trade directly on each platform.</span>
+            <span className="text-xs">MotionHQ does not execute trades. You trade directly on each platform.</span>
           </div>
           <div className="flex gap-6">
             <Link href="/markets" className="hover:text-foreground transition-colors">Markets</Link>

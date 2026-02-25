@@ -105,11 +105,11 @@ export function dispatchArbitrageAlerts(opportunities: ArbitrageOpportunity[]): 
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'X-ShadowBench-Event': 'arb.detected',
+      'X-MotionHQ-Event': 'arb.detected',
     };
 
     if (hook.secret) {
-      headers['X-ShadowBench-Signature'] = signPayload(payload, hook.secret);
+      headers['X-MotionHQ-Signature'] = signPayload(payload, hook.secret);
     }
 
     // Fire-and-forget with 5s timeout

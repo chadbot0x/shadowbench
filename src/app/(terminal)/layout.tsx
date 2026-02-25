@@ -71,7 +71,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
     >
       <div className="p-4 border-b border-border">
         <Link href="/" className="text-lg font-bold text-foreground tracking-tight" onClick={handleNavClick}>
-          Shadow<span className="text-blue">Bench</span>
+          MotionHQ
         </Link>
       </div>
       <nav className="flex-1 p-2 space-y-1">
@@ -196,7 +196,7 @@ export default function TerminalLayout({ children }: { children: React.ReactNode
         <main className="flex-1 overflow-auto p-4 md:p-6">
           {children}
           <footer className="mt-12 pt-4 border-t border-border text-center text-xs text-muted">
-            ShadowBench does not execute trades. You trade directly on each platform.
+            MotionHQ does not execute trades. You trade directly on each platform.
           </footer>
         </main>
       </div>

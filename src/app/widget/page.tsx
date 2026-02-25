@@ -48,7 +48,7 @@ function WidgetContent() {
         <div className="flex items-center gap-2 mb-4">
           <span className="text-lg">🔍</span>
           <span className={`text-sm font-bold ${text}`}>
-            Shadow<span className="text-blue-400">Bench</span>
+            MotionHQ
           </span>
           <span className="ml-auto relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />

@@ -1,6 +1,6 @@
 import type { WatchlistItem } from '@/types';
 
-const STORAGE_KEY = 'shadowbench-watchlist';
+const STORAGE_KEY = 'motionhq-watchlist';
 
 export function getWatchlist(): WatchlistItem[] {
   if (typeof window === 'undefined') return [];

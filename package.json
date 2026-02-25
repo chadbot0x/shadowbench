@@ -1,7 +1,8 @@
 {
-  "name": "shadowbench",
+  "name": "motionhq",
   "version": "0.1.0",
   "private": true,
+  "description": "Cross-platform arbitrage scanner with elite sports stats and real-time market odds",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
